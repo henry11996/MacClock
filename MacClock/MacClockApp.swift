@@ -269,6 +269,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         for url in urls {
             let result = URLSchemeHandler.handle(url)
             print("[MacClock URL] \(result)")
+
+            // For list/status commands, copy result to clipboard
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            let action = components?.queryItems?.first(where: { $0.name == "action" })?.value
+
+            if action == "list" || url.host == "status" {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(result, forType: .string)
+                print("[MacClock URL] Result copied to clipboard: \(result)")
+            }
         }
     }
 }

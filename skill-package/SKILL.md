@@ -94,10 +94,22 @@ open "macclock://schedule?action=remove&label=<name>"
 |-----------|-------------|
 | `cmd` | Shell command to execute (URL encoded) |
 
-### Check Status
+### Check Status & List
 ```bash
+# Get overall status (timer count, pomodoro state, schedule count)
 open "macclock://status"
+
+# List all timers with details
+open "macclock://timer?action=list"
+
+# List all schedules with details
+open "macclock://schedule?action=list"
 ```
+
+> **Note:** Results are copied to clipboard. Use `pbpaste` to view:
+> ```bash
+> open "macclock://timer?action=list" && sleep 0.5 && pbpaste
+> ```
 
 ## Common Durations
 - 1 minute = 60 seconds
@@ -124,6 +136,8 @@ open "macclock://status"
 | Pause pomodoro | `open "macclock://pomodoro?action=pause"` |
 | Cancel timer | `open "macclock://timer?action=cancel"` |
 | Cancel all timers | `open "macclock://timer?action=cancel&all=true"` |
+| List all timers | `open "macclock://timer?action=list"` |
+| Check status | `open "macclock://status"` |
 | Daily pomodoro at 9:00 | `open "macclock://schedule?action=add&time=09:00&do=pomodoro&repeat=daily&name=Morning"` |
 | Weekday reminder at 18:00 | `open "macclock://schedule?action=add&time=18:00&do=notify&title=Reminder&msg=Time%20to%20go&repeat=weekday"` |
 | Every 2 hours break | `open "macclock://schedule?action=add&time=10:00&do=timer&sec=300&label=Break&repeat=2"` |

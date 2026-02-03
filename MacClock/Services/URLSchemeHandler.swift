@@ -69,6 +69,20 @@ struct URLSchemeHandler {
             return "已新增計時器「\(label)」\(Int(seconds)) 秒"
         }
 
+        // 列出計時器: macclock://timer?action=list
+        if params["action"] == "list" {
+            if manager.timers.isEmpty {
+                return "No active timers"
+            }
+            var result = "Timers (\(manager.timers.count)):\n"
+            for timer in manager.timers {
+                let state = timer.timerState == .running ? "▶" : (timer.timerState == .paused ? "⏸" : "⏹")
+                let remaining = formatDuration(timer.currentRemainingSeconds())
+                result += "[\(state)] \(timer.label) - \(remaining) remaining\n"
+            }
+            return result
+        }
+
         // 取消計時器: macclock://timer?action=cancel 或 &label=xxx 或 &all=true
         if params["action"] == "cancel" {
             if params["all"] == "true" {
@@ -332,6 +346,19 @@ struct URLSchemeHandler {
             }
         }
         return params
+    }
+
+    /// Format duration as human readable string
+    private static func formatDuration(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%02d:%02d", minutes, secs)
     }
 
     /// Parse color parameter - supports color names or hex values
