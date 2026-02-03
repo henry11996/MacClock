@@ -131,8 +131,8 @@ struct ContentView: View {
             let screen = window.screen
         else { return }
         let leftSpace = window.frame.minX - screen.visibleFrame.minX
-        // Need ~100px for two buttons (36+36) + spacing
-        expandToRight = leftSpace < 100
+        // Need ~132px for three buttons + spacings
+        expandToRight = leftSpace < 132
     }
 
     private var calendarButton: some View {

@@ -5,7 +5,7 @@ Control MacClock timers and Pomodoro sessions on macOS through AI agents like Cl
 ## Installation
 
 ```bash
-npx skills add henry11996/macclock-skill
+npx skills add henry11996/macclock
 ```
 
 ## Requirements

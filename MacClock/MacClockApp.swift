@@ -341,6 +341,25 @@ private struct DisplaySettingsTab: View {
                     ForEach(ClockStyle.allCases, id: \.self) { style in
                         clockStyleRow(style)
                     }
+
+                    Divider()
+                        .padding(.vertical, Spacing.xs)
+
+                    Button {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.Date-Time-Settings.extension") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        HStack {
+                            Label("系統日期與時間設定", systemImage: "clock.badge.gearshape")
+                                .font(.system(size: 13, design: .rounded))
+                            Spacer()
+                            Image(systemName: "arrow.up.forward.square")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // Font Size Card

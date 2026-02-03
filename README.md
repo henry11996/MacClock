@@ -32,10 +32,10 @@ open "macclock://timer?sec=60&command=say%20Done"
 
 ### AI Agent Skill
 
-Install the [MacClock Agent Skill](https://github.com/henry11996/macclock-skill) for Claude Code:
+Install the [MacClock Agent Skill](https://github.com/henry11996/macclock) for Claude Code:
 
 ```bash
-npx skills add henry11996/macclock-skill
+npx skills add henry11996/macclock
 ```
 
 Then ask your AI: "Set a 5 minute timer" or "開始番茄鐘"
