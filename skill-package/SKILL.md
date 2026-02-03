@@ -1,10 +1,10 @@
 ---
 name: macclock
-description: Control MacClock timers and Pomodoro on macOS. Set countdown timers with custom labels, run shell commands on completion, and manage Pomodoro sessions. Triggers on "timer", "計時器", "pomodoro", "番茄鐘", "倒數", "countdown".
+description: Control MacClock timers, Pomodoro, and schedules on macOS. Set countdown timers, manage Pomodoro sessions, and create scheduled tasks. Triggers on "timer", "計時器", "pomodoro", "番茄鐘", "倒數", "countdown", "schedule", "排程".
 compatibility: Requires macOS and MacClock app installed
 metadata:
   author: henry11996
-  version: "1.0"
+  version: "1.1"
   platform: macOS
 ---
 
@@ -54,6 +54,46 @@ open "macclock://pomodoro?action=pause"   # Pause
 open "macclock://pomodoro?action=reset"   # Reset
 ```
 
+### Schedule Control
+```bash
+# Add a schedule
+open "macclock://schedule?action=add&time=<HH:MM>&do=<action>&repeat=<rule>&name=<label>"
+
+# List all schedules
+open "macclock://schedule?action=list"
+
+# Toggle schedule on/off
+open "macclock://schedule?action=toggle&label=<name>"
+
+# Remove a schedule
+open "macclock://schedule?action=remove&label=<name>"
+```
+
+**Schedule Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `time` | Yes | Time in HH:MM format (24-hour) |
+| `do` | Yes | Action: `pomodoro`, `timer`, `command`, `notify` |
+| `name` | No | Schedule label |
+| `repeat` | No | `daily`, `weekday`, `weekend`, or hours interval (e.g., `2`) |
+
+**For `do=timer`:**
+| Parameter | Description |
+|-----------|-------------|
+| `sec` | Duration in seconds (default: 300) |
+| `label` | Timer label |
+
+**For `do=notify`:**
+| Parameter | Description |
+|-----------|-------------|
+| `title` | Notification title |
+| `msg` | Notification message |
+
+**For `do=command`:**
+| Parameter | Description |
+|-----------|-------------|
+| `cmd` | Shell command to execute (URL encoded) |
+
 ### Check Status
 ```bash
 open "macclock://status"
@@ -84,6 +124,13 @@ open "macclock://status"
 | Pause pomodoro | `open "macclock://pomodoro?action=pause"` |
 | Cancel timer | `open "macclock://timer?action=cancel"` |
 | Cancel all timers | `open "macclock://timer?action=cancel&all=true"` |
+| Daily pomodoro at 9:00 | `open "macclock://schedule?action=add&time=09:00&do=pomodoro&repeat=daily&name=Morning"` |
+| Weekday reminder at 18:00 | `open "macclock://schedule?action=add&time=18:00&do=notify&title=Reminder&msg=Time%20to%20go&repeat=weekday"` |
+| Every 2 hours break | `open "macclock://schedule?action=add&time=10:00&do=timer&sec=300&label=Break&repeat=2"` |
+| Run command at noon | `open "macclock://schedule?action=add&time=12:00&do=command&cmd=say%20Lunch%20time"` |
+| List schedules | `open "macclock://schedule?action=list"` |
+| Toggle schedule | `open "macclock://schedule?action=toggle&label=Morning"` |
+| Remove schedule | `open "macclock://schedule?action=remove&label=Morning"` |
 
 ## Notes
 - MacClock must be running
@@ -93,6 +140,9 @@ open "macclock://status"
 - For `command` parameter: spaces must be encoded as `%20`
 - Use `repeat=true` for infinite looping timers (cancel with `action=cancel`)
 - Color accepts English names, Chinese names, or hex values (e.g., `red`, `紅色`, `EF4444`)
+- Maximum 20 schedules allowed
+- Schedules are checked every minute
+- Adding a schedule will auto-show the schedule widget if hidden
 
 ## Reference
 See [references/AI-Integration.md](references/AI-Integration.md) for detailed API documentation including App Intents, Python integration, and tool definitions.

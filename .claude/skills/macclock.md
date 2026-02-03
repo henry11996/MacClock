@@ -64,12 +64,12 @@ open "macclock://status"
 | Pause pomodoro | `open "macclock://pomodoro?action=pause"` |
 | 取消計時器 | `open "macclock://timer?action=cancel"` |
 | Cancel all timers | `open "macclock://timer?action=cancel&all=true"` |
-| 每天 9:00 啟動番茄鐘 | `open "macclock://schedule?action=add&time=09:00&do=pomodoro&repeat=daily&name=開始工作"` |
-| 工作日 18:00 提醒下班 | `open "macclock://schedule?action=add&time=18:00&do=notify&title=提醒&msg=該下班了&repeat=weekday"` |
-| 每 2 小時提醒休息 | `open "macclock://schedule?action=add&time=10:00&do=timer&sec=300&label=休息&repeat=2"` |
-| 列出所有排程 | `open "macclock://schedule?action=list"` |
-| 停用排程 | `open "macclock://schedule?action=toggle&label=開始工作"` |
-| 刪除排程 | `open "macclock://schedule?action=remove&label=開始工作"` |
+| Daily pomodoro at 9:00 | `open "macclock://schedule?action=add&time=09:00&do=pomodoro&repeat=daily&name=Morning"` |
+| Weekday reminder at 18:00 | `open "macclock://schedule?action=add&time=18:00&do=notify&title=Reminder&msg=Time%20to%20go&repeat=weekday"` |
+| Every 2 hours break | `open "macclock://schedule?action=add&time=10:00&do=timer&sec=300&label=Break&repeat=2"` |
+| List schedules | `open "macclock://schedule?action=list"` |
+| Toggle schedule | `open "macclock://schedule?action=toggle&label=Morning"` |
+| Remove schedule | `open "macclock://schedule?action=remove&label=Morning"` |
 
 ### Schedule Control
 ```bash
