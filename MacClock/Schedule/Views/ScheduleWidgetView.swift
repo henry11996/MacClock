@@ -50,6 +50,28 @@ struct ScheduleWidgetView: View {
     }
 }
 
+// MARK: - Schedule Indicator Dot
+
+/// 彩色指示圓點，依動作類型顯示不同顏色
+struct ScheduleIndicatorDot: View {
+    let color: Color
+    let isEnabled: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(color.opacity(isEnabled ? 0.3 : 0.15), lineWidth: 1)
+                .frame(width: 10, height: 10)
+            Circle()
+                .fill(color.opacity(isEnabled ? 1.0 : 0.4))
+                .frame(width: 6, height: 6)
+        }
+        .frame(width: 10, height: 10)
+    }
+}
+
+// MARK: - Schedule Item View
+
 /// 單一排程項目視圖
 struct ScheduleItemView: View {
     let schedule: Schedule
@@ -62,6 +84,27 @@ struct ScheduleItemView: View {
     @State private var bounceOffset: CGFloat = 0
     @State private var bounceCount: Int = 0
     @State private var highlightOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // MARK: - Action Accent Color
+
+    private var actionColor: Color {
+        switch schedule.action {
+        case .startPomodoro:    return ThemeColors.workPhase
+        case .startTimer:       return ThemeColors.primary
+        case .runCommand:       return .purple
+        case .notification:     return ThemeColors.urgencyMedium
+        }
+    }
+
+    // MARK: - Approaching Urgency
+
+    private var isApproaching: Bool {
+        guard schedule.isEnabled,
+              let next = schedule.nextTriggerDate() else { return false }
+        let diff = next.timeIntervalSince(Date())
+        return diff > 0 && diff <= 300
+    }
 
     /// 計算下次執行的相對時間文字
     private var relativeTimeText: String? {
@@ -127,26 +170,33 @@ struct ScheduleItemView: View {
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
+            // 彩色指示圓點
+            ScheduleIndicatorDot(color: actionColor, isEnabled: schedule.isEnabled)
+
             // 動作圖示
             Image(systemName: schedule.action.icon)
                 .font(.system(size: 10 * fontScale, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(actionColor.opacity(schedule.isEnabled ? 0.85 : 0.4))
 
             // 標籤
             Text(schedule.label)
                 .font(.system(size: 11 * fontScale, weight: .medium, design: .rounded))
                 .lineLimit(1)
+                .opacity(schedule.isEnabled ? 1.0 : 0.5)
 
             // 下次觸發時間
             Text(nextTriggerText)
                 .font(.system(size: 10 * fontScale, design: .rounded))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.white.opacity(schedule.isEnabled ? 0.6 : 0.35))
 
             // 相對時間（突出顯示）
             if let relativeText = relativeTimeText {
                 Text(relativeText)
                     .font(.system(size: 10 * fontScale, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(
+                        (isApproaching ? ThemeColors.urgencyMedium : .white)
+                            .opacity(0.9)
+                    )
             }
 
             // 重複規則指示
@@ -155,7 +205,21 @@ struct ScheduleItemView: View {
             } else {
                 Image(systemName: "repeat")
                     .font(.system(size: 8 * fontScale))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.white.opacity(schedule.isEnabled ? 0.5 : 0.3))
+            }
+
+            // 懸停時顯示啟用/停用按鈕
+            if isHovered {
+                Button {
+                    ScheduleManager.shared.toggleEnabled(id: schedule.id)
+                } label: {
+                    Image(systemName: schedule.isEnabled ? "pause.fill" : "play.fill")
+                        .font(.system(size: 10 * fontScale, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(InteractiveCircleButtonStyle())
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .padding(.horizontal, Spacing.sm)
@@ -190,11 +254,32 @@ struct ScheduleItemView: View {
             // 點擊打開排程設定
             NotificationCenter.default.post(name: .showSettings, object: SettingsTab.schedule)
         }
+        .contextMenu {
+            Button {
+                ScheduleManager.shared.toggleEnabled(id: schedule.id)
+            } label: {
+                Label(schedule.isEnabled ? "停用" : "啟用",
+                      systemImage: schedule.isEnabled ? "pause.circle" : "play.circle")
+            }
+            Divider()
+            Button {
+                NotificationCenter.default.post(name: .showSettings, object: SettingsTab.schedule)
+            } label: {
+                Label("編輯", systemImage: "pencil")
+            }
+            Divider()
+            Button(role: .destructive) {
+                ScheduleManager.shared.removeSchedule(id: schedule.id)
+            } label: {
+                Label("刪除", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: - Bounce Animation
 
     private func startBounceAnimation() {
+        guard !reduceMotion else { return }
         bounceCount = 0
         performBounce()
     }
