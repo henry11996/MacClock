@@ -41,6 +41,7 @@ struct ScheduleWidgetView: View {
                         schedule: schedule,
                         fontScale: fontScale,
                         liquidGlassEnabled: liquidGlassEnabled,
+                        isRecentlyTriggered: manager.recentlyTriggeredScheduleId == schedule.id,
                         namespace: namespace
                     )
                 }
@@ -54,9 +55,13 @@ struct ScheduleItemView: View {
     let schedule: Schedule
     let fontScale: CGFloat
     let liquidGlassEnabled: Bool
+    let isRecentlyTriggered: Bool
     var namespace: Namespace.ID
 
     @State private var isHovered = false
+    @State private var bounceOffset: CGFloat = 0
+    @State private var bounceCount: Int = 0
+    @State private var highlightOpacity: Double = 0
 
     /// 計算下次執行的相對時間文字
     private var relativeTimeText: String? {
@@ -155,6 +160,10 @@ struct ScheduleItemView: View {
         }
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, Spacing.xs)
+        .overlay(
+            Capsule()
+                .fill(Color.white.opacity(highlightOpacity))
+        )
         .conditionalGlassEffect(enabled: liquidGlassEnabled, in: Capsule())
         .glassEffectID("schedule-\(schedule.id)", in: namespace)
         .opacity(isHovered ? 0.8 : 1.0)
@@ -163,9 +172,55 @@ struct ScheduleItemView: View {
                 isHovered = hovering
             }
         }
+        .offset(y: bounceOffset)
+        .onChange(of: isRecentlyTriggered) { _, newValue in
+            if newValue {
+                startBounceAnimation()
+                withAnimation(.easeIn(duration: 0.2)) {
+                    highlightOpacity = 0.3
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation(.easeOut(duration: 2.0)) {
+                        highlightOpacity = 0
+                    }
+                }
+            }
+        }
         .onTapGesture {
             // 點擊打開排程設定
             NotificationCenter.default.post(name: .showSettings, object: SettingsTab.schedule)
+        }
+    }
+
+    // MARK: - Bounce Animation
+
+    private func startBounceAnimation() {
+        bounceCount = 0
+        performBounce()
+    }
+
+    private func performBounce() {
+        guard bounceCount < 5 else {
+            bounceOffset = 0
+            return
+        }
+
+        // 向上跳
+        withAnimation(.spring(duration: 0.2, bounce: 0.5)) {
+            bounceOffset = -8
+        }
+
+        // 彈回
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(duration: 0.2, bounce: 0.3)) {
+                bounceOffset = 0
+            }
+
+            // 下一次跳動
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                bounceCount += 1
+                performBounce()
+            }
         }
     }
 }

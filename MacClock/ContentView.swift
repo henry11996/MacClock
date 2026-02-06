@@ -159,27 +159,8 @@ struct ContentView: View {
             let screen = window.screen
         else { return }
         let leftSpace = window.frame.minX - screen.visibleFrame.minX
-        // Need ~132px for three buttons + spacings
-        expandToRight = leftSpace < 132
-    }
-
-    private var calendarButton: some View {
-        Button {
-            if let url = NSWorkspace.shared.urlForApplication(
-                withBundleIdentifier: "com.apple.iCal")
-            {
-                NSWorkspace.shared.openApplication(
-                    at: url, configuration: NSWorkspace.OpenConfiguration())
-            }
-        } label: {
-            Image(systemName: "calendar")
-                .font(.system(size: 16, weight: .medium))
-                .frame(width: 36, height: 36)
-                .contentShape(Circle())
-        }
-        .buttonStyle(InteractiveButtonStyle())
-        .conditionalGlassEffect(enabled: liquidGlassEnabled, in: Circle())
-        .glassEffectID("calendar", in: namespace)
+        // Need ~84px for two buttons + spacing
+        expandToRight = leftSpace < 84
     }
 
     private var settingsButton: some View {
@@ -271,13 +252,11 @@ struct ContentView: View {
             if expandToRight {
                 HStack(spacing: 12) {
                     settingsButton
-                    calendarButton
                     quitButton
                 }
             } else {
                 HStack(spacing: 12) {
                     quitButton
-                    calendarButton
                     settingsButton
                 }
             }
@@ -294,8 +273,8 @@ struct ContentView: View {
         }
     }
 
-    // Width of buttons area: 3 buttons(36*3) + 2 spacings(12*2) = 108 + 24 = 132
-    private let buttonsAreaWidth: CGFloat = 132
+    // Width of buttons area: 2 buttons(36*2) + 1 spacing(12) = 72 + 12 = 84
+    private let buttonsAreaWidth: CGFloat = 84
 
     private var compactPomodoroView: some View {
         CompactPomodoroView(
@@ -342,6 +321,26 @@ struct ContentView: View {
     }
 
 
+    /// Whether the countdown widget should be visible (accounting for auto-collapse)
+    private var shouldShowCountdown: Bool {
+        guard countdownManager.settings.isEnabled else { return false }
+        guard countdownManager.settings.position != .hidden else { return false }
+        if countdownManager.settings.autoCollapseEnabled {
+            return countdownManager.isAutoExpanded
+        }
+        return true
+    }
+
+    /// Whether the schedule widget should be visible (accounting for auto-collapse)
+    private var shouldShowSchedule: Bool {
+        guard scheduleManager.settings.isEnabled else { return false }
+        guard scheduleManager.settings.position != .hidden else { return false }
+        if scheduleManager.settings.autoCollapseEnabled {
+            return scheduleManager.isAutoExpanded
+        }
+        return true
+    }
+
     @ViewBuilder
     private var mainContent: some View {
         VStack(alignment: .trailing, spacing: Spacing.sm) {
@@ -349,11 +348,13 @@ struct ContentView: View {
             if timer.settings.pomodoroPosition == .above {
                 compactPomodoroView
             }
-            if countdownManager.settings.position == .above {
+            if shouldShowCountdown && countdownManager.settings.position == .above {
                 compactCountdownView
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            if scheduleManager.settings.position == .above {
+            if shouldShowSchedule && scheduleManager.settings.position == .above {
                 compactScheduleView
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             // Clock with hover buttons
@@ -363,13 +364,17 @@ struct ContentView: View {
             if timer.settings.pomodoroPosition == .below {
                 compactPomodoroView
             }
-            if countdownManager.settings.position == .below {
+            if shouldShowCountdown && countdownManager.settings.position == .below {
                 compactCountdownView
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
-            if scheduleManager.settings.position == .below {
+            if shouldShowSchedule && scheduleManager.settings.position == .below {
                 compactScheduleView
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
+        .animation(AnimationPresets.spring, value: countdownManager.isAutoExpanded)
+        .animation(AnimationPresets.spring, value: scheduleManager.isAutoExpanded)
     }
 
     var body: some View {

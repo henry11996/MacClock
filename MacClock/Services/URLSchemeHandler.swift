@@ -42,6 +42,11 @@ struct URLSchemeHandler {
     private static func handleTimer(params: [String: String]) -> String {
         let manager = CountdownManager.shared
 
+        // 允許 list 動作在停用時仍可使用
+        if !manager.settings.isEnabled && params["action"] != "list" {
+            return "錯誤：計時器功能已停用"
+        }
+
         // 新增計時器: macclock://timer?action=add&sec=300&label=休息
         if params["action"] == "add" {
             guard let secStr = params["sec"], let seconds = TimeInterval(secStr), seconds > 0 else {
@@ -167,6 +172,11 @@ struct URLSchemeHandler {
 
     private static func handleSchedule(params: [String: String]) -> String {
         let manager = ScheduleManager.shared
+
+        // 允許 list 動作在停用時仍可使用
+        if !manager.settings.isEnabled && params["action"] != "list" {
+            return "錯誤：排程功能已停用"
+        }
 
         guard let action = params["action"] else {
             return "錯誤：需要 action 參數 (add/list/toggle/remove)"

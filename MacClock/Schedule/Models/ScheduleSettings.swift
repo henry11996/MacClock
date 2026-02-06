@@ -16,15 +16,19 @@ enum SchedulePosition: String, Codable {
 
 /// Global settings for schedules
 struct ScheduleSettings: Codable {
+    var isEnabled: Bool
     var position: SchedulePosition
     var maxVisibleSchedules: Int
     var fontScale: CGFloat
+    var autoCollapseEnabled: Bool  // 觸發時才顯示（平時隱藏）
 
     static var `default`: ScheduleSettings {
         ScheduleSettings(
+            isEnabled: true,
             position: .below,
             maxVisibleSchedules: 3,
-            fontScale: 1.0
+            fontScale: 1.0,
+            autoCollapseEnabled: false
         )
     }
 }

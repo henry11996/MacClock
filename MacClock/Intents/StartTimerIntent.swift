@@ -25,6 +25,11 @@ struct StartTimerIntent: AppIntent {
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let manager = CountdownManager.shared
 
+        // 檢查功能是否啟用
+        guard manager.settings.isEnabled else {
+            return .result(value: "錯誤：計時器功能已停用")
+        }
+
         // 檢查計時器上限
         guard manager.timers.count < CountdownManager.maxTimerCount else {
             return .result(value: "錯誤：已達計時器上限 (\(CountdownManager.maxTimerCount))")

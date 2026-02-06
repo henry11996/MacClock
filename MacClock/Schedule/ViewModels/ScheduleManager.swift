@@ -22,6 +22,10 @@ final class ScheduleManager {
 
     // MARK: - State
     private(set) var schedules: [Schedule] = []
+    private(set) var recentlyTriggeredScheduleId: UUID?
+
+    // Auto-expand state for auto-collapse mode
+    private(set) var isAutoExpanded: Bool = false
 
     // MARK: - Settings
     var settings: ScheduleSettings = .default {
@@ -33,6 +37,7 @@ final class ScheduleManager {
     // MARK: - Private
     private var checkTimer: AnyCancellable?
     private var lastCheckMinute: Int = -1
+    private var autoCollapseTask: Task<Void, Never>?
 
     // MARK: - Computed Properties
 
@@ -144,6 +149,20 @@ final class ScheduleManager {
 
     /// 檢查並執行排程
     func checkAndExecute() {
+        guard settings.isEnabled else { return }
+
+        // Pre-trigger auto-expand: show widget before schedule fires
+        if settings.autoCollapseEnabled, !isAutoExpanded {
+            let threshold = Date().addingTimeInterval(15)
+            for schedule in enabledSchedules {
+                if let nextTrigger = schedule.nextTriggerDate(), nextTrigger <= threshold {
+                    isAutoExpanded = true
+                    autoCollapseTask?.cancel()
+                    break
+                }
+            }
+        }
+
         let now = Date()
         let calendar = Calendar.current
         let currentMinute = calendar.component(.minute, from: now)
@@ -161,6 +180,29 @@ final class ScheduleManager {
 
             if shouldTrigger(schedules[index], now: now) {
                 print("[ScheduleManager] 觸發排程: \(schedules[index].label)")
+
+                // 設定最近觸發的排程 ID（用於動畫）
+                let triggeredId = schedules[index].id
+                recentlyTriggeredScheduleId = triggeredId
+
+                // 3 秒後清除
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                    if self?.recentlyTriggeredScheduleId == triggeredId {
+                        self?.recentlyTriggeredScheduleId = nil
+                    }
+                }
+
+                // Auto-expand widget if auto-collapse mode is enabled
+                if settings.autoCollapseEnabled {
+                    isAutoExpanded = true
+                    autoCollapseTask?.cancel()
+                    autoCollapseTask = Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(10))
+                        guard !Task.isCancelled else { return }
+                        self.isAutoExpanded = false
+                    }
+                }
+
                 execute(schedules[index])
 
                 // 更新 lastTriggeredAt

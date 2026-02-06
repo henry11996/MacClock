@@ -260,6 +260,7 @@ enum SystemSound: String, Codable, CaseIterable {
 
 /// Global settings for countdown timers
 struct CountdownSettings: Codable {
+    var isEnabled: Bool
     var position: CountdownPosition
     var maxVisibleTimers: Int
     var defaultDuration: TimeInterval
@@ -272,9 +273,11 @@ struct CountdownSettings: Codable {
     var customTTSMessage: String?    // 自訂 TTS 訊息
     var ttsVoice: TTSVoice           // TTS 語音
     var ttsRate: Int                 // TTS 語速 (預設 200)
+    var autoCollapseEnabled: Bool    // 完成時才顯示（平時隱藏）
 
     static var `default`: CountdownSettings {
         CountdownSettings(
+            isEnabled: true,
             position: .hidden,
             maxVisibleTimers: 15,
             defaultDuration: 5 * 60,  // 5 minutes
@@ -284,7 +287,8 @@ struct CountdownSettings: Codable {
             soundSource: nil,
             customTTSMessage: nil,
             ttsVoice: .meiJia,
-            ttsRate: 200
+            ttsRate: 200,
+            autoCollapseEnabled: false
         )
     }
 

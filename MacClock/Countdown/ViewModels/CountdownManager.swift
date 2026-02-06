@@ -30,6 +30,9 @@ final class CountdownManager {
     // Recently completed timer ID for completion animation
     private(set) var recentlyCompletedTimerId: UUID? = nil
 
+    // Auto-expand state for auto-collapse mode
+    private(set) var isAutoExpanded: Bool = false
+
     // MARK: - Settings
     var settings: CountdownSettings = .default {
         didSet {
@@ -39,6 +42,7 @@ final class CountdownManager {
 
     // MARK: - Private
     private var tickTimer: AnyCancellable?
+    private var autoCollapseTask: Task<Void, Never>?
 
     // MARK: - Computed Properties
 
@@ -215,6 +219,10 @@ final class CountdownManager {
             if remaining <= 0 {
                 handleTimerComplete(index: index)
                 needsSave = true
+            } else if remaining <= 10, settings.autoCollapseEnabled, !isAutoExpanded {
+                // Auto-expand when 10 seconds remaining
+                isAutoExpanded = true
+                autoCollapseTask?.cancel()
             }
         }
 
@@ -235,6 +243,17 @@ final class CountdownManager {
             try? await Task.sleep(for: .seconds(2))
             if self.recentlyCompletedTimerId == timerId {
                 self.recentlyCompletedTimerId = nil
+            }
+        }
+
+        // Auto-expand widget if auto-collapse mode is enabled
+        if settings.autoCollapseEnabled {
+            isAutoExpanded = true
+            autoCollapseTask?.cancel()
+            autoCollapseTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled else { return }
+                self.isAutoExpanded = false
             }
         }
 

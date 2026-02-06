@@ -24,14 +24,16 @@ struct MacClockApp: App {
 
 /// Settings tab identifier
 enum SettingsTab: String, CaseIterable {
-    case display = "display"
+    case general = "general"
+    case clock = "clock"
     case pomodoro = "pomodoro"
     case countdown = "countdown"
     case schedule = "schedule"
 
     var title: String {
         switch self {
-        case .display: return "顯示"
+        case .general: return "一般"
+        case .clock: return "時鐘"
         case .pomodoro: return "番茄鐘"
         case .countdown: return "計時器"
         case .schedule: return "排程"
@@ -40,7 +42,8 @@ enum SettingsTab: String, CaseIterable {
 
     var icon: String {
         switch self {
-        case .display: return "display"
+        case .general: return "gearshape"
+        case .clock: return "clock"
         case .pomodoro: return "timer"
         case .countdown: return "hourglass"
         case .schedule: return "calendar.badge.clock"
@@ -53,7 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var panel: NSPanel!
     var fullScreenWindow: NSWindow?
     var settingsWindow: NSWindow?
-    var settingsInitialTab: SettingsTab = .display
+    var settingsInitialTab: SettingsTab = .general
 
     // UserDefaults keys for position memory
     private let windowPositionXKey = "windowPositionX"
@@ -212,7 +215,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @MainActor @objc private func showSettings(_ notification: Notification) {
         // Determine which tab to show
-        let tab = (notification.object as? SettingsTab) ?? .display
+        let tab = (notification.object as? SettingsTab) ?? .general
         settingsInitialTab = tab
 
         // If window already exists, bring it to front
@@ -228,7 +231,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Create new settings window
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 800),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 800),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
@@ -290,7 +293,7 @@ struct UnifiedSettingsView: View {
     @State var selectedTab: SettingsTab
     let onClose: () -> Void
 
-    init(initialTab: SettingsTab = .display, onClose: @escaping () -> Void) {
+    init(initialTab: SettingsTab = .general, onClose: @escaping () -> Void) {
         _selectedTab = State(initialValue: initialTab)
         self.onClose = onClose
     }
@@ -311,8 +314,10 @@ struct UnifiedSettingsView: View {
 
             // Tab content
             switch selectedTab {
-            case .display:
-                DisplaySettingsTab(onClose: onClose)
+            case .general:
+                GeneralSettingsTab(onClose: onClose)
+            case .clock:
+                ClockSettingsTab(onClose: onClose)
             case .pomodoro:
                 PomodoroSettingsTab(onClose: onClose)
             case .countdown:
@@ -321,24 +326,16 @@ struct UnifiedSettingsView: View {
                 ScheduleSettingsTab(onClose: onClose)
             }
         }
-        .frame(minWidth: 360, minHeight: 400)
+        .frame(minWidth: 520, minHeight: 400)
     }
 }
 
-// MARK: - Display Settings Tab
+// MARK: - General Settings Tab
 
-private struct DisplaySettingsTab: View {
+private struct GeneralSettingsTab: View {
     let onClose: () -> Void
     var timer = PomodoroTimer.shared
 
-    @State private var clockStyle: ClockStyle
-    @State private var clockFontScale: CGFloat
-    @State private var fontScale: CGFloat
-    @State private var countdownFontScale: CGFloat
-    @State private var scheduleFontScale: CGFloat
-    @State private var pomodoroPosition: PomodoroPosition
-    @State private var countdownPosition: CountdownPosition
-    @State private var schedulePosition: SchedulePosition
     @State private var liquidGlassEnabled: Bool
     @State private var backgroundUpdateFPS: BackgroundUpdateFPS
     @State private var launchAtLogin: Bool
@@ -346,16 +343,6 @@ private struct DisplaySettingsTab: View {
     init(onClose: @escaping () -> Void) {
         self.onClose = onClose
         let settings = PomodoroTimer.shared.settings
-        let countdownSettings = CountdownManager.shared.settings
-        let scheduleSettings = ScheduleManager.shared.settings
-        _clockStyle = State(initialValue: settings.clockStyle)
-        _clockFontScale = State(initialValue: settings.clockFontScale)
-        _fontScale = State(initialValue: settings.fontScale)
-        _countdownFontScale = State(initialValue: countdownSettings.fontScale)
-        _scheduleFontScale = State(initialValue: scheduleSettings.fontScale)
-        _pomodoroPosition = State(initialValue: settings.pomodoroPosition)
-        _countdownPosition = State(initialValue: countdownSettings.position)
-        _schedulePosition = State(initialValue: scheduleSettings.position)
         _liquidGlassEnabled = State(initialValue: settings.liquidGlassEnabled)
         _backgroundUpdateFPS = State(initialValue: settings.backgroundUpdateFPS)
         _launchAtLogin = State(initialValue: SMAppService.mainApp.status == .enabled)
@@ -364,47 +351,6 @@ private struct DisplaySettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                // Clock Style Card
-                SettingsCard(title: "時鐘樣式", icon: "clock") {
-                    ForEach(ClockStyle.allCases, id: \.self) { style in
-                        clockStyleRow(style)
-                    }
-
-                    Divider()
-                        .padding(.vertical, Spacing.xs)
-
-                    Button {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.Date-Time-Settings.extension") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    } label: {
-                        HStack {
-                            Label("系統日期與時間設定", systemImage: "clock.badge.gearshape")
-                                .font(.system(size: 13, design: .rounded))
-                            Spacer()
-                            Image(systemName: "arrow.up.forward.square")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Font Size Card
-                SettingsCard(title: "字體大小", icon: "textformat.size") {
-                    fontScaleRow("時鐘", icon: "clock", value: $clockFontScale)
-                    fontScaleRow("番茄鐘", icon: "timer", value: $fontScale)
-                    fontScaleRow("計時器", icon: "hourglass", value: $countdownFontScale)
-                    fontScaleRow("排程", icon: "calendar.badge.clock", value: $scheduleFontScale)
-                }
-
-                // Component Position Card
-                SettingsCard(title: "元件位置", icon: "square.stack") {
-                    positionPicker("番茄鐘", icon: "timer", selection: $pomodoroPosition)
-                    positionPicker("計時器", icon: "hourglass", selection: $countdownPosition)
-                    positionPicker("排程", icon: "calendar.badge.clock", selection: $schedulePosition)
-                }
-
                 // Visual Effects Card
                 SettingsCard(title: "視覺效果", icon: "sparkles") {
                     Toggle(isOn: $liquidGlassEnabled) {
@@ -470,19 +416,106 @@ private struct DisplaySettingsTab: View {
             }
             .background(.regularMaterial)
         }
-        .onChange(of: clockStyle) { saveSettings() }
-        .onChange(of: clockFontScale) { saveSettings() }
-        .onChange(of: fontScale) { saveSettings() }
-        .onChange(of: countdownFontScale) { saveSettings() }
-        .onChange(of: scheduleFontScale) { saveSettings() }
-        .onChange(of: pomodoroPosition) { saveSettings() }
-        .onChange(of: countdownPosition) { saveSettings() }
-        .onChange(of: schedulePosition) { saveSettings() }
         .onChange(of: liquidGlassEnabled) { saveSettings() }
         .onChange(of: backgroundUpdateFPS) { saveSettings() }
     }
 
-    // MARK: - Reusable Components
+    private func saveSettings() {
+        var settings = timer.settings
+        settings.liquidGlassEnabled = liquidGlassEnabled
+        settings.backgroundUpdateFPS = backgroundUpdateFPS
+        timer.settings = settings
+
+        NotificationCenter.default.post(name: .backgroundRefreshSettingsChanged, object: nil)
+    }
+
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            print("Failed to \(enabled ? "enable" : "disable") launch at login: \(error)")
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+}
+
+// MARK: - Clock Settings Tab
+
+private struct ClockSettingsTab: View {
+    let onClose: () -> Void
+    var timer = PomodoroTimer.shared
+
+    @State private var clockStyle: ClockStyle
+    @State private var clockFontScale: CGFloat
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        let settings = PomodoroTimer.shared.settings
+        _clockStyle = State(initialValue: settings.clockStyle)
+        _clockFontScale = State(initialValue: settings.clockFontScale)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // Clock Style Card
+                SettingsCard(title: "時鐘樣式", icon: "clock") {
+                    ForEach(ClockStyle.allCases, id: \.self) { style in
+                        clockStyleRow(style)
+                    }
+
+                    Divider()
+                        .padding(.vertical, Spacing.xs)
+
+                    Button {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.Date-Time-Settings.extension") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        HStack {
+                            Label("系統日期與時間設定", systemImage: "clock.badge.gearshape")
+                                .font(.system(size: 13, design: .rounded))
+                            Spacer()
+                            Image(systemName: "arrow.up.forward.square")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Clock Font Size Card
+                SettingsCard(title: "字體大小", icon: "textformat.size") {
+                    fontScaleRow("時鐘", icon: "clock", value: $clockFontScale)
+                }
+
+                Spacer()
+            }
+            .padding(Spacing.lg)
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 0) {
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("關閉") {
+                        saveSettings()
+                        onClose()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.escape, modifiers: [])
+                }
+                .padding(Spacing.lg)
+            }
+            .background(.regularMaterial)
+        }
+        .onChange(of: clockStyle) { saveSettings() }
+        .onChange(of: clockFontScale) { saveSettings() }
+    }
 
     @ViewBuilder
     private func clockStyleRow(_ style: ClockStyle) -> some View {
@@ -532,75 +565,11 @@ private struct DisplaySettingsTab: View {
         }
     }
 
-    @ViewBuilder
-    private func positionPicker<T: Hashable>(_ label: String, icon: String, selection: Binding<T>) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Label(label, systemImage: icon)
-                .font(.system(size: 13, design: .rounded))
-
-            if T.self == PomodoroPosition.self {
-                Picker(label, selection: selection as! Binding<PomodoroPosition>) {
-                    Text("隱藏").tag(PomodoroPosition.hidden)
-                    Text("時鐘上方").tag(PomodoroPosition.above)
-                    Text("時鐘下方").tag(PomodoroPosition.below)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            } else if T.self == CountdownPosition.self {
-                Picker(label, selection: selection as! Binding<CountdownPosition>) {
-                    Text("隱藏").tag(CountdownPosition.hidden)
-                    Text("時鐘上方").tag(CountdownPosition.above)
-                    Text("時鐘下方").tag(CountdownPosition.below)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            } else if T.self == SchedulePosition.self {
-                Picker(label, selection: selection as! Binding<SchedulePosition>) {
-                    Text("隱藏").tag(SchedulePosition.hidden)
-                    Text("時鐘上方").tag(SchedulePosition.above)
-                    Text("時鐘下方").tag(SchedulePosition.below)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
-        }
-    }
-
     private func saveSettings() {
         var settings = timer.settings
         settings.clockStyle = clockStyle
         settings.clockFontScale = clockFontScale
-        settings.fontScale = fontScale
-        settings.pomodoroPosition = pomodoroPosition
-        settings.liquidGlassEnabled = liquidGlassEnabled
-        settings.backgroundUpdateFPS = backgroundUpdateFPS
         timer.settings = settings
-
-        var countdownSettings = CountdownManager.shared.settings
-        countdownSettings.position = countdownPosition
-        countdownSettings.fontScale = countdownFontScale
-        CountdownManager.shared.settings = countdownSettings
-
-        var scheduleSettings = ScheduleManager.shared.settings
-        scheduleSettings.position = schedulePosition
-        scheduleSettings.fontScale = scheduleFontScale
-        ScheduleManager.shared.settings = scheduleSettings
-
-        NotificationCenter.default.post(name: .backgroundRefreshSettingsChanged, object: nil)
-    }
-
-    private func setLaunchAtLogin(_ enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        } catch {
-            print("Failed to \(enabled ? "enable" : "disable") launch at login: \(error)")
-            // Revert the toggle if failed
-            launchAtLogin = SMAppService.mainApp.status == .enabled
-        }
     }
 }
 
@@ -610,6 +579,8 @@ private struct PomodoroSettingsTab: View {
     let onClose: () -> Void
     var timer = PomodoroTimer.shared
 
+    @State private var pomodoroPosition: PomodoroPosition
+    @State private var fontScale: CGFloat
     @State private var workMinutes: Double
     @State private var shortBreakMinutes: Double
     @State private var longBreakMinutes: Double
@@ -623,6 +594,8 @@ private struct PomodoroSettingsTab: View {
     init(onClose: @escaping () -> Void) {
         self.onClose = onClose
         let settings = PomodoroTimer.shared.settings
+        _pomodoroPosition = State(initialValue: settings.pomodoroPosition)
+        _fontScale = State(initialValue: settings.fontScale)
         _workMinutes = State(initialValue: settings.workDuration / 60)
         _shortBreakMinutes = State(initialValue: settings.shortBreakDuration / 60)
         _longBreakMinutes = State(initialValue: settings.longBreakDuration / 60)
@@ -636,6 +609,24 @@ private struct PomodoroSettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
+                // Position Card
+                SettingsCard(title: "位置", icon: "square.stack") {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Picker("番茄鐘位置", selection: $pomodoroPosition) {
+                            Text("隱藏").tag(PomodoroPosition.hidden)
+                            Text("時鐘上方").tag(PomodoroPosition.above)
+                            Text("時鐘下方").tag(PomodoroPosition.below)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                }
+
+                // Font Size Card
+                SettingsCard(title: "字體大小", icon: "textformat.size") {
+                    fontScaleRow("番茄鐘", icon: "timer", value: $fontScale)
+                }
+
                 // Time settings
                 SettingsCard(title: "時間設定", icon: "clock") {
                     HStack {
@@ -790,10 +781,36 @@ private struct PomodoroSettingsTab: View {
         } message: {
             Text("這將清除所有已完成的番茄鐘和專注時間記錄。")
         }
+        .onChange(of: pomodoroPosition) { saveSettings() }
+        .onChange(of: fontScale) { saveSettings() }
     }
 
     private func formatMinutes(_ minutes: Double) -> String {
         "\(Int(minutes)) 分鐘"
+    }
+
+    @ViewBuilder
+    private func fontScaleRow(_ label: String, icon: String, value: Binding<CGFloat>) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack {
+                Label(label, systemImage: icon)
+                    .font(.system(size: 13, design: .rounded))
+                Spacer()
+                Text("\(Int(value.wrappedValue * 100))%")
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .frame(width: 50, alignment: .trailing)
+            }
+            HStack(spacing: Spacing.md) {
+                Text("小")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                Slider(value: value, in: 0.8...5.0, step: 0.1)
+                    .controlSize(.small)
+                Text("大")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+        }
     }
 
     private func saveSettings() {
@@ -806,10 +823,10 @@ private struct PomodoroSettingsTab: View {
             soundVolume: soundVolume,
             autoStartBreaks: autoStartBreaks,
             autoStartWork: autoStartWork,
-            fontScale: timer.settings.fontScale,
+            fontScale: fontScale,
             clockFontScale: timer.settings.clockFontScale,
             clockStyle: timer.settings.clockStyle,
-            pomodoroPosition: timer.settings.pomodoroPosition,
+            pomodoroPosition: pomodoroPosition,
             liquidGlassEnabled: timer.settings.liquidGlassEnabled,
             backgroundUpdateFPS: timer.settings.backgroundUpdateFPS
         )
@@ -822,13 +839,15 @@ private struct CountdownSettingsTab: View {
     let onClose: () -> Void
     var manager = CountdownManager.shared
 
+    @State private var isEnabled: Bool
+    @State private var countdownPosition: CountdownPosition
+    @State private var countdownFontScale: CGFloat
     @State private var newLabel: String = ""
-    @State private var selectedHours: Int = 0
-    @State private var selectedMinutes: Int = 5
-    @State private var selectedSeconds: Int = 0
+    @State private var timeInput: String = "5:00"
     @State private var selectedColorHex: UInt = CountdownColors.blue
     @State private var completionCommand: String = ""
     @State private var editingTimerId: UUID?
+    @State private var showAdvanced: Bool = true
 
     // Sound settings UI state
     @State private var soundSourceType: SoundSourceType = .system
@@ -840,27 +859,86 @@ private struct CountdownSettingsTab: View {
     @State private var customSoundName: String = ""
     @State private var customSoundBookmarkData: Data?
 
+    @State private var autoCollapseEnabled: Bool
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        let settings = CountdownManager.shared.settings
+        _isEnabled = State(initialValue: settings.isEnabled)
+        _countdownPosition = State(initialValue: settings.position)
+        _countdownFontScale = State(initialValue: settings.fontScale)
+        _autoCollapseEnabled = State(initialValue: settings.autoCollapseEnabled)
+    }
+
+    private var parsedSeconds: TimeInterval {
+        parseTimeInput(timeInput)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                // Sound settings
-                soundSettingsSection
+                // Enable Toggle
+                SettingsCard(title: "功能", icon: "switch.2") {
+                    Toggle(isOn: $isEnabled) {
+                        Label("啟用計時器", systemImage: "hourglass")
+                            .font(.system(size: 13, design: .rounded))
+                    }
+                    .toggleStyle(.switch)
+                    .onChange(of: isEnabled) {
+                        manager.settings.isEnabled = isEnabled
+                    }
 
-                Divider()
+                    if isEnabled {
+                        Divider()
+                            .padding(.vertical, Spacing.xs)
 
-                // Quick add
-                quickAddSection
+                        Toggle(isOn: $autoCollapseEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("完成時才顯示")
+                                    .font(.system(size: 13, design: .rounded))
+                                Text("計時器完成時展開列表，10 秒後自動收起")
+                                    .font(.system(size: 11, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .onChange(of: autoCollapseEnabled) {
+                            manager.settings.autoCollapseEnabled = autoCollapseEnabled
+                        }
+                    }
+                }
 
-                Divider()
+                // Position Card
+                SettingsCard(title: "位置", icon: "square.stack") {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Picker("計時器位置", selection: $countdownPosition) {
+                            Text("隱藏").tag(CountdownPosition.hidden)
+                            Text("時鐘上方").tag(CountdownPosition.above)
+                            Text("時鐘下方").tag(CountdownPosition.below)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                }
 
-                // Custom timer
-                customTimerSection
+                // Font Size Card
+                SettingsCard(title: "字體大小", icon: "textformat.size") {
+                    fontScaleRow("計時器", icon: "hourglass", value: $countdownFontScale)
+                }
+
+                // Quick add chips
+                quickAddChips
+
+                // Timer input
+                timerInputSection
 
                 // Existing timers
                 if !manager.timers.isEmpty {
-                    Divider()
                     existingTimersSection
                 }
+
+                // Advanced settings (collapsible)
+                advancedSettingsSection
 
                 Spacer()
             }
@@ -881,31 +959,230 @@ private struct CountdownSettingsTab: View {
             }
             .background(.regularMaterial)
         }
+        .onChange(of: countdownPosition) { savePositionSettings() }
+        .onChange(of: countdownFontScale) { savePositionSettings() }
     }
 
-    // MARK: - Sound Settings Section
+    private func savePositionSettings() {
+        var settings = manager.settings
+        settings.position = countdownPosition
+        settings.fontScale = countdownFontScale
+        manager.settings = settings
+    }
 
-    private var soundSettingsSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("提示音設定")
+    @ViewBuilder
+    private func fontScaleRow(_ label: String, icon: String, value: Binding<CGFloat>) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack {
+                Label(label, systemImage: icon)
+                    .font(.system(size: 13, design: .rounded))
+                Spacer()
+                Text("\(Int(value.wrappedValue * 100))%")
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .frame(width: 50, alignment: .trailing)
+            }
+            HStack(spacing: Spacing.md) {
+                Text("小")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                Slider(value: value, in: 0.8...5.0, step: 0.1)
+                    .controlSize(.small)
+                Text("大")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Parse Time Input
+
+    private func parseTimeInput(_ input: String) -> TimeInterval {
+        let parts = input.split(separator: ":").compactMap { Int($0) }
+        switch parts.count {
+        case 1: return TimeInterval(parts[0] * 60) // Just minutes
+        case 2: return TimeInterval(parts[0] * 60 + parts[1]) // MM:SS
+        case 3: return TimeInterval(parts[0] * 3600 + parts[1] * 60 + parts[2]) // HH:MM:SS
+        default: return 0
+        }
+    }
+
+    private func formatSecondsToInput(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        if h > 0 {
+            return String(format: "%d:%02d:%02d", h, m, s)
+        }
+        return String(format: "%d:%02d", m, s)
+    }
+
+    // MARK: - Quick Add Chips
+
+    private var quickAddChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Spacing.sm) {
+                ForEach([("1m", 60), ("3m", 180), ("5m", 300), ("10m", 600), ("15m", 900), ("25m", 1500), ("30m", 1800), ("1h", 3600)], id: \.0) { label, seconds in
+                    Button {
+                        timeInput = formatSecondsToInput(TimeInterval(seconds))
+                    } label: {
+                        Text(label)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, Spacing.xs)
+                            .background(parsedSeconds == TimeInterval(seconds) ? Color.accentColor : Color.primary.opacity(0.08))
+                            .foregroundStyle(parsedSeconds == TimeInterval(seconds) ? .white : .primary)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: - Timer Input Section
+
+    private var timerInputSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Time and Label row
+            HStack(spacing: Spacing.md) {
+                // Time input
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("時間")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    TextField("5:00", text: $timeInput)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                }
+
+                // Label input
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("標籤")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    TextField("計時器", text: $newLabel)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                }
+
+                Spacer()
+
+                // Color picker (compact)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("顏色")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    compactColorPicker
+                }
+            }
+
+            // Add button
+            Button {
+                if editingTimerId != nil {
+                    saveEditedTimer()
+                } else {
+                    addCustomTimer()
+                }
+            } label: {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: editingTimerId != nil ? "checkmark.circle.fill" : "plus.circle.fill")
+                    Text(editingTimerId != nil ? "儲存" : "新增計時器")
+                }
                 .font(.system(size: 13, weight: .medium, design: .rounded))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.sm)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(parsedSeconds == 0)
+
+            if editingTimerId != nil {
+                Button("取消編輯") {
+                    cancelEdit()
+                }
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.primary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var compactColorPicker: some View {
+        HStack(spacing: 4) {
+            ForEach(CountdownColors.all.prefix(6), id: \.self) { hex in
+                Button {
+                    selectedColorHex = hex
+                } label: {
+                    Circle()
+                        .fill(Color(hex: hex))
+                        .frame(width: 18, height: 18)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white, lineWidth: selectedColorHex == hex ? 2 : 0)
+                        )
+                        .shadow(color: selectedColorHex == hex ? Color(hex: hex).opacity(0.5) : .clear, radius: 3)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Advanced Settings Section
+
+    private var advancedSettingsSection: some View {
+        DisclosureGroup(isExpanded: $showAdvanced) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                // Completion command
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("完成時執行指令")
+                        .font(.system(size: 12, design: .rounded))
+                    TextField("say \"時間到\"", text: $completionCommand)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11, design: .monospaced))
+                }
+
+                Divider()
+
+                // Sound settings
+                soundSettingsContent
+            }
+            .padding(.top, Spacing.sm)
+        } label: {
+            HStack {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 12))
+                Text("進階設定")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+            }
+            .foregroundStyle(.secondary)
+        }
+        .padding(Spacing.md)
+        .background(Color.primary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .onAppear {
+            syncSoundSettingsState()
+        }
+    }
+
+    private var soundSettingsContent: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("提示音")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
 
             // Sound source type picker
-            HStack {
-                Text("音效類型")
-                    .font(.system(size: 12, design: .rounded))
-                Spacer()
-                Picker("", selection: $soundSourceType) {
-                    ForEach(SoundSourceType.allCases, id: \.self) { type in
-                        Text(type.rawValue).tag(type)
-                    }
+            Picker("", selection: $soundSourceType) {
+                ForEach(SoundSourceType.allCases, id: \.self) { type in
+                    Text(type.rawValue).tag(type)
                 }
-                .frame(width: 140)
-                .labelsHidden()
-                .onChange(of: soundSourceType) { _, _ in
-                    applySoundSettings()
-                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: soundSourceType) { _, _ in
+                applySoundSettings()
             }
 
             // Dynamic content based on sound source type
@@ -919,45 +1196,24 @@ private struct CountdownSettingsTab: View {
                 }
             }
 
-            Divider()
-
             // Volume slider
             HStack {
-                Text("音量")
-                    .font(.system(size: 12, design: .rounded))
-                Spacer()
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "speaker.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                    Slider(value: Bindable(manager).settings.soundVolume, in: 0...1)
-                        .frame(width: 100)
-                    Image(systemName: "speaker.wave.3.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            // Preview button
-            HStack {
-                Spacer()
+                Image(systemName: "speaker.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Slider(value: Bindable(manager).settings.soundVolume, in: 0...1)
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
                 Button {
                     previewCurrentSound()
                 } label: {
-                    HStack(spacing: Spacing.xs) {
-                        Image(systemName: "play.fill")
-                        Text("試聽")
-                    }
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10))
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
             }
-        }
-        .padding(Spacing.md)
-        .background(Color.primary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .onAppear {
-            syncSoundSettingsState()
         }
     }
 
@@ -1196,199 +1452,16 @@ private struct CountdownSettingsTab: View {
         applySoundSettings()
     }
 
-    // MARK: - Quick Add Section
-
-    private var quickAddSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("快速新增")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                ], spacing: Spacing.sm
-            ) {
-                quickAddButton(label: "1 分鐘", duration: 60)
-                quickAddButton(label: "5 分鐘", duration: 300)
-                quickAddButton(label: "10 分鐘", duration: 600)
-                quickAddButton(label: "15 分鐘", duration: 900)
-                quickAddButton(label: "30 分鐘", duration: 1800)
-                quickAddButton(label: "1 小時", duration: 3600)
-            }
-        }
-        .padding(Spacing.md)
-        .background(Color.primary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private func quickAddButton(label: String, duration: TimeInterval) -> some View {
-        Button {
-            manager.addTimer(label: label, duration: duration, colorHex: selectedColorHex)
-        } label: {
-            Text(label)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.sm)
-                .background(Color.primary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(InteractiveButtonStyle())
-    }
-
-    // MARK: - Custom Timer Section
-
-    private var customTimerSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
-                Text(editingTimerId != nil ? "編輯計時器" : "自訂計時器")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                if editingTimerId != nil {
-                    Button("取消編輯") {
-                        cancelEdit()
-                    }
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundStyle(.secondary)
-                }
-            }
-
-            HStack {
-                Text("標籤")
-                    .font(.system(size: 12, design: .rounded))
-                Spacer()
-                TextField("計時器名稱", text: $newLabel)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 150)
-            }
-
-            HStack {
-                Text("時間")
-                    .font(.system(size: 12, design: .rounded))
-                Spacer()
-                timePickers
-            }
-
-            HStack {
-                Text("顏色")
-                    .font(.system(size: 12, design: .rounded))
-                Spacer()
-                colorPicker
-            }
-
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                HStack {
-                    Text("完成指令")
-                        .font(.system(size: 12, design: .rounded))
-                    Spacer()
-                }
-                TextField("例如：say \"時間到了\"", text: $completionCommand)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 11, design: .monospaced))
-                Text("計時結束時執行的 shell 指令（可留空）")
-                    .font(.system(size: 10, design: .rounded))
-                    .foregroundStyle(.tertiary)
-            }
-
-            Button {
-                if editingTimerId != nil {
-                    saveEditedTimer()
-                } else {
-                    addCustomTimer()
-                }
-            } label: {
-                HStack {
-                    Image(
-                        systemName: editingTimerId != nil
-                            ? "checkmark.circle.fill" : "plus.circle.fill")
-                    Text(editingTimerId != nil ? "儲存變更" : "新增計時器")
-                }
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.sm)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(totalSeconds == 0)
-        }
-        .padding(Spacing.md)
-        .background(Color.primary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private var timePickers: some View {
-        HStack(spacing: Spacing.xs) {
-            Picker("", selection: $selectedHours) {
-                ForEach(0..<24, id: \.self) { hour in
-                    Text("\(hour)").tag(hour)
-                }
-            }
-            .frame(width: 50)
-            .labelsHidden()
-            Text("時")
-                .font(.system(size: 11, design: .rounded))
-
-            Picker("", selection: $selectedMinutes) {
-                ForEach(0..<60, id: \.self) { minute in
-                    Text("\(minute)").tag(minute)
-                }
-            }
-            .frame(width: 50)
-            .labelsHidden()
-            Text("分")
-                .font(.system(size: 11, design: .rounded))
-
-            Picker("", selection: $selectedSeconds) {
-                ForEach(0..<60, id: \.self) { second in
-                    Text("\(second)").tag(second)
-                }
-            }
-            .frame(width: 50)
-            .labelsHidden()
-            Text("秒")
-                .font(.system(size: 11, design: .rounded))
-        }
-    }
-
-    private var colorPicker: some View {
-        HStack(spacing: Spacing.xs) {
-            ForEach(CountdownColors.all, id: \.self) { hex in
-                Button {
-                    selectedColorHex = hex
-                } label: {
-                    Circle()
-                        .fill(Color(hex: hex))
-                        .frame(width: 20, height: 20)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white, lineWidth: selectedColorHex == hex ? 2 : 0)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var totalSeconds: TimeInterval {
-        TimeInterval(selectedHours * 3600 + selectedMinutes * 60 + selectedSeconds)
-    }
-
     private func addCustomTimer() {
-        guard totalSeconds > 0 else { return }
+        guard parsedSeconds > 0 else { return }
         manager.addTimer(
             label: newLabel.isEmpty ? "計時器" : newLabel,
-            duration: totalSeconds,
+            duration: parsedSeconds,
             colorHex: selectedColorHex,
             completionCommand: completionCommand.isEmpty ? nil : completionCommand
         )
         newLabel = ""
-        selectedHours = 0
-        selectedMinutes = 5
-        selectedSeconds = 0
+        timeInput = "5:00"
         completionCommand = ""
     }
 
@@ -1492,30 +1565,24 @@ private struct CountdownSettingsTab: View {
         newLabel = timer.label
         selectedColorHex = timer.colorHex
         completionCommand = timer.completionCommand ?? ""
-
-        let totalSecs = Int(timer.duration)
-        selectedHours = totalSecs / 3600
-        selectedMinutes = (totalSecs % 3600) / 60
-        selectedSeconds = totalSecs % 60
+        timeInput = formatSecondsToInput(timer.duration)
     }
 
     private func cancelEdit() {
         editingTimerId = nil
         newLabel = ""
-        selectedHours = 0
-        selectedMinutes = 5
-        selectedSeconds = 0
+        timeInput = "5:00"
         selectedColorHex = CountdownColors.blue
         completionCommand = ""
     }
 
     private func saveEditedTimer() {
-        guard let id = editingTimerId, totalSeconds > 0 else { return }
+        guard let id = editingTimerId, parsedSeconds > 0 else { return }
 
         manager.updateTimer(
             id: id,
             label: newLabel.isEmpty ? "計時器" : newLabel,
-            duration: totalSeconds,
+            duration: parsedSeconds,
             colorHex: selectedColorHex,
             completionCommand: completionCommand.isEmpty ? nil : completionCommand
         )

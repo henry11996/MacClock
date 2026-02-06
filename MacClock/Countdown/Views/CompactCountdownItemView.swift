@@ -106,6 +106,8 @@ struct CompactCountdownItemView: View {
 
     @State private var isHovered = false
     @State private var pulseScale: CGFloat = 1.0
+    @State private var bounceOffset: CGFloat = 0
+    @State private var bounceCount: Int = 0
 
     private var timerColor: Color {
         Color(hex: timer.colorHex)
@@ -198,6 +200,12 @@ struct CompactCountdownItemView: View {
                 isHovered = hovering
             }
         }
+        .offset(y: bounceOffset)
+        .onChange(of: isRecentlyCompleted) { _, newValue in
+            if newValue {
+                startBounceAnimation()
+            }
+        }
         .contextMenu {
             Button {
                 onReset()
@@ -225,6 +233,38 @@ struct CompactCountdownItemView: View {
                 onDelete()
             } label: {
                 Label("刪除", systemImage: "trash")
+            }
+        }
+    }
+
+    // MARK: - Bounce Animation
+
+    private func startBounceAnimation() {
+        bounceCount = 0
+        performBounce()
+    }
+
+    private func performBounce() {
+        guard bounceCount < 5 else {
+            bounceOffset = 0
+            return
+        }
+
+        // 向上跳
+        withAnimation(.spring(duration: 0.2, bounce: 0.5)) {
+            bounceOffset = -8
+        }
+
+        // 彈回
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(duration: 0.2, bounce: 0.3)) {
+                bounceOffset = 0
+            }
+
+            // 下一次跳動
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                bounceCount += 1
+                performBounce()
             }
         }
     }
