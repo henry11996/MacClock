@@ -61,6 +61,27 @@ final class CountdownManager {
         timers.contains { $0.timerState == .running }
     }
 
+    /// Update auto-expand state: expand when any timer is running, collapse when none are
+    private func updateAutoExpandState() {
+        guard settings.autoCollapseEnabled else { return }
+        if hasRunningTimers {
+            if !isAutoExpanded {
+                isAutoExpanded = true
+                autoCollapseTask?.cancel()
+            }
+        } else if isAutoExpanded {
+            // No running timers — collapse after 30 seconds
+            autoCollapseTask?.cancel()
+            autoCollapseTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled else { return }
+                if !self.hasRunningTimers {
+                    self.isAutoExpanded = false
+                }
+            }
+        }
+    }
+
     // MARK: - Initialization
 
     private init() {
@@ -93,6 +114,7 @@ final class CountdownManager {
     func removeTimer(id: UUID) {
         timers.removeAll { $0.id == id }
         saveState()
+        updateAutoExpandState()
     }
 
     /// Update an existing timer's properties
@@ -126,6 +148,7 @@ final class CountdownManager {
         timer.remainingSecondsWhenPaused = nil
         timers[index] = timer
         saveState()
+        updateAutoExpandState()
     }
 
     /// Pause a timer
@@ -139,6 +162,7 @@ final class CountdownManager {
         timer.targetEndTime = nil
         timers[index] = timer
         saveState()
+        updateAutoExpandState()
     }
 
     /// Toggle start/pause
@@ -162,6 +186,7 @@ final class CountdownManager {
         timer.remainingSecondsWhenPaused = nil
         timers[index] = timer
         saveState()
+        updateAutoExpandState()
     }
 
     /// Add time to a timer
@@ -219,10 +244,6 @@ final class CountdownManager {
             if remaining <= 0 {
                 handleTimerComplete(index: index)
                 needsSave = true
-            } else if remaining <= 10, settings.autoCollapseEnabled, !isAutoExpanded {
-                // Auto-expand when 10 seconds remaining
-                isAutoExpanded = true
-                autoCollapseTask?.cancel()
             }
         }
 
@@ -251,9 +272,12 @@ final class CountdownManager {
             isAutoExpanded = true
             autoCollapseTask?.cancel()
             autoCollapseTask = Task { @MainActor in
-                try? await Task.sleep(for: .seconds(10))
+                try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled else { return }
-                self.isAutoExpanded = false
+                // Only collapse if no timers are still running
+                if !self.hasRunningTimers {
+                    self.isAutoExpanded = false
+                }
             }
         }
 

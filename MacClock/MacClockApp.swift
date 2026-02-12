@@ -894,9 +894,9 @@ private struct CountdownSettingsTab: View {
 
                         Toggle(isOn: $autoCollapseEnabled) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("完成時才顯示")
+                                Text("倒數時才顯示")
                                     .font(.system(size: 13, design: .rounded))
-                                Text("計時器完成時展開列表，10 秒後自動收起")
+                                Text("計時器倒數時展開列表，停止 30 秒後自動收起")
                                     .font(.system(size: 11, design: .rounded))
                                     .foregroundColor(.secondary)
                             }

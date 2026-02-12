@@ -273,7 +273,7 @@ struct CountdownSettings: Codable {
     var customTTSMessage: String?    // 自訂 TTS 訊息
     var ttsVoice: TTSVoice           // TTS 語音
     var ttsRate: Int                 // TTS 語速 (預設 200)
-    var autoCollapseEnabled: Bool    // 完成時才顯示（平時隱藏）
+    var autoCollapseEnabled: Bool    // 倒數時才顯示（平時隱藏）
 
     static var `default`: CountdownSettings {
         CountdownSettings(
