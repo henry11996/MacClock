@@ -15,6 +15,8 @@ final class BackgroundRefreshService {
     static let shared = BackgroundRefreshService()
 
     private weak var panel: NSPanel?
+    private weak var notchLeftPanel: NSPanel?
+    private weak var notchRightPanel: NSPanel?
     private var timerCancellable: AnyCancellable?
 
     private init() {}
@@ -23,6 +25,11 @@ final class BackgroundRefreshService {
         self.panel = panel
         let settings = PomodoroSettings.load()
         setFPS(settings.backgroundUpdateFPS, liquidGlassEnabled: settings.liquidGlassEnabled)
+    }
+
+    func configureNotchPanels(left: NSPanel?, right: NSPanel?) {
+        self.notchLeftPanel = left
+        self.notchRightPanel = right
     }
 
     func setFPS(_ fps: BackgroundUpdateFPS, liquidGlassEnabled: Bool) {
@@ -43,16 +50,25 @@ final class BackgroundRefreshService {
     }
 
     private func refreshPanel() {
-        guard let panel else { return }
-
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
-        panel.invalidateShadow()
-        invalidateLayerTree(panel.contentView?.layer)
-        panel.contentView?.needsDisplay = true
-        panel.viewsNeedDisplay = true
-        panel.display()
+        if let panel {
+            panel.invalidateShadow()
+            invalidateLayerTree(panel.contentView?.layer)
+            panel.contentView?.needsDisplay = true
+            panel.viewsNeedDisplay = true
+            panel.display()
+        }
+
+        for notchPanel in [notchLeftPanel, notchRightPanel] {
+            guard let notchPanel else { continue }
+            notchPanel.invalidateShadow()
+            invalidateLayerTree(notchPanel.contentView?.layer)
+            notchPanel.contentView?.needsDisplay = true
+            notchPanel.viewsNeedDisplay = true
+            notchPanel.display()
+        }
 
         CATransaction.commit()
     }

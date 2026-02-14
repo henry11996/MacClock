@@ -58,6 +58,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var settingsWindow: NSWindow?
     var settingsInitialTab: SettingsTab = .general
 
+    // Notch mode panels
+    var notchLeftPanel: NSPanel?
+    var notchRightPanel: NSPanel?
+
     // UserDefaults keys for position memory
     private let windowPositionXKey = "windowPositionX"
     private let windowPositionYKey = "windowPositionY"
@@ -110,9 +114,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
-        // Show the panel
-        panel.orderFront(nil)
-
         // Register for full-screen notifications
         NotificationCenter.default.addObserver(
             self,
@@ -147,6 +148,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Initialize ScheduleManager to start checking schedules
         _ = ScheduleManager.shared
+
+        // Notch mode observers
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleNotchModeChanged(_:)),
+            name: .notchModeChanged,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleScreenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleScreenParametersChanged), // Reuse reposition logic
+            name: .fontScaleChanged,
+            object: nil
+        )
+
+        // Activate notch mode if previously enabled (only on notch Macs)
+        if NotchGeometry.hasNotch && PomodoroSettings.load().notchModeEnabled {
+            activateNotchMode()
+        } else {
+            panel.orderFront(nil)
+        }
     }
 
     @MainActor @objc private func handleBackgroundRefreshSettingsChanged() {
@@ -160,6 +190,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowDidMove(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window == panel else { return }
+        
         // Save position to UserDefaults
         let origin = panel.frame.origin
         UserDefaults.standard.set(origin.x, forKey: windowPositionXKey)
@@ -199,16 +231,159 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrame(screenFrame, display: true)
         window.makeKeyAndOrderFront(nil)
 
-        // Hide the widget panel while in full screen
+        // Hide the widget panel and notch panels while in full screen
         panel.orderOut(nil)
+        notchLeftPanel?.orderOut(nil)
+        notchRightPanel?.orderOut(nil)
     }
 
     @MainActor @objc private func exitFullScreen() {
         fullScreenWindow?.orderOut(nil)
         fullScreenWindow = nil
 
-        // Show the widget panel again
+        // Restore appropriate panels based on notch mode
+        if PomodoroTimer.shared.settings.notchModeEnabled {
+            notchLeftPanel?.orderFront(nil)
+            notchRightPanel?.orderFront(nil)
+        } else {
+            panel.orderFront(nil)
+        }
+    }
+
+    // MARK: - Notch Mode Management
+
+    @MainActor func activateNotchMode() {
+        // Hide the main floating widget
+        panel.orderOut(nil)
+
+        let barHeight = NotchGeometry.menuBarHeight
+
+        // Create left panel (clock + pomodoro) - Width will adapt
+        let leftFrame = NotchGeometry.leftPanelFrame(panelWidth: 100)
+        let leftPanel = createNotchPanel(frame: leftFrame)
+        let leftHosting = NSHostingView(rootView: NotchClockView())
+        leftHosting.sizingOptions = [.intrinsicContentSize]
+        leftHosting.frame = NSRect(x: 0, y: 0, width: leftFrame.width, height: barHeight)
+        leftPanel.contentView = leftHosting
+        leftPanel.delegate = self // Handle anchoring
+        leftPanel.orderFront(nil)
+        notchLeftPanel = leftPanel
+
+        // Create right panel (countdown timers) - Width will adapt
+        let rightFrame = NotchGeometry.rightPanelFrame(panelWidth: 100)
+        let rightPanel = createNotchPanel(frame: rightFrame)
+        let rightHosting = NSHostingView(rootView: NotchCountdownView())
+        rightHosting.sizingOptions = [.intrinsicContentSize]
+        rightHosting.frame = NSRect(x: 0, y: 0, width: rightFrame.width, height: barHeight)
+        rightPanel.contentView = rightHosting
+        rightPanel.delegate = self
+        rightPanel.orderFront(nil)
+        notchRightPanel = rightPanel
+
+        // Configure background refresh for notch panels
+        BackgroundRefreshService.shared.configureNotchPanels(left: leftPanel, right: rightPanel)
+    }
+
+    // Handle dynamic resizing for notch panels
+    func windowDidResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        
+        // If left panel resizes, we must adjust its origin so it stays anchored to the right (at the notch)
+        if window == notchLeftPanel {
+            let newWidth = window.frame.width
+            let newFrame = NotchGeometry.leftPanelFrame(panelWidth: newWidth)
+            if window.frame.origin.x != newFrame.origin.x {
+                window.setFrameOrigin(newFrame.origin)
+            }
+        }
+        
+        // If right panel resizes (vertical expansion), anchor to top
+        if window == notchRightPanel {
+            let topY = NotchGeometry.notchRect.maxY
+            let newOriginY = topY - window.frame.height
+            if window.frame.origin.y != newOriginY {
+                window.setFrameOrigin(NSPoint(x: window.frame.origin.x, y: newOriginY))
+            }
+        }
+    }
+
+    @MainActor func deactivateNotchMode() {
+        // Remove notch panels
+        notchLeftPanel?.orderOut(nil)
+        notchLeftPanel = nil
+        notchRightPanel?.orderOut(nil)
+        notchRightPanel = nil
+
+        // Clear notch panels from background refresh
+        BackgroundRefreshService.shared.configureNotchPanels(left: nil, right: nil)
+
+        // Restore the main floating widget
         panel.orderFront(nil)
+    }
+
+    @MainActor func repositionNotchPanels() {
+        if let left = notchLeftPanel {
+            let leftFrame = NotchGeometry.leftPanelFrame(panelWidth: left.frame.width)
+            left.setFrame(leftFrame, display: true)
+        }
+        if let right = notchRightPanel {
+            let rightFrame = NotchGeometry.rightPanelFrame(panelWidth: right.frame.width)
+            right.setFrame(rightFrame, display: true)
+        }
+    }
+
+    /// Window level above statusBar so panels stay visible when menu bar auto-hides
+    private static let notchPanelLevel = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+
+    private func createNotchPanel(frame: NSRect) -> NSPanel {
+        let panel = NSPanel(
+            contentRect: frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = Self.notchPanelLevel
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        panel.isMovableByWindowBackground = false
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = false
+        panel.hidesOnDeactivate = false
+        panel.ignoresMouseEvents = false
+        return panel
+    }
+
+    @MainActor @objc private func handleNotchModeChanged(_ notification: Notification) {
+        guard NotchGeometry.hasNotch else { return }
+
+        let enabled: Bool
+        if let value = notification.object as? Bool {
+            // From context menu, URL scheme, or settings toggle
+            enabled = value
+        } else {
+            // Fallback: read from current settings
+            enabled = PomodoroTimer.shared.settings.notchModeEnabled
+        }
+
+        // Update settings if triggered externally (context menu / URL scheme)
+        if PomodoroTimer.shared.settings.notchModeEnabled != enabled {
+            var settings = PomodoroTimer.shared.settings
+            settings.notchModeEnabled = enabled
+            PomodoroTimer.shared.settings = settings
+        }
+
+        let isCurrentlyActive = notchLeftPanel != nil
+        if enabled && !isCurrentlyActive {
+            activateNotchMode()
+        } else if !enabled && isCurrentlyActive {
+            deactivateNotchMode()
+        }
+    }
+
+    @MainActor @objc private func handleScreenParametersChanged() {
+        if PomodoroTimer.shared.settings.notchModeEnabled {
+            repositionNotchPanels()
+        }
     }
 
     // MARK: - Settings Window
@@ -339,6 +514,7 @@ private struct GeneralSettingsTab: View {
     @State private var liquidGlassEnabled: Bool
     @State private var backgroundUpdateFPS: BackgroundUpdateFPS
     @State private var launchAtLogin: Bool
+    @State private var notchModeEnabled: Bool
 
     init(onClose: @escaping () -> Void) {
         self.onClose = onClose
@@ -346,35 +522,38 @@ private struct GeneralSettingsTab: View {
         _liquidGlassEnabled = State(initialValue: settings.liquidGlassEnabled)
         _backgroundUpdateFPS = State(initialValue: settings.backgroundUpdateFPS)
         _launchAtLogin = State(initialValue: SMAppService.mainApp.status == .enabled)
+        _notchModeEnabled = State(initialValue: settings.notchModeEnabled)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                // Visual Effects Card
-                SettingsCard(title: "視覺效果", icon: "sparkles") {
-                    Toggle(isOn: $liquidGlassEnabled) {
-                        Label("Liquid Glass 效果", systemImage: "drop.fill")
-                            .font(.system(size: 13, design: .rounded))
-                    }
-                    .toggleStyle(.switch)
+                // Visual Effects Card (Hide when Notch Mode is active)
+                if !notchModeEnabled {
+                    SettingsCard(title: "視覺效果", icon: "sparkles") {
+                        Toggle(isOn: $liquidGlassEnabled) {
+                            Label("Liquid Glass 效果", systemImage: "drop.fill")
+                                .font(.system(size: 13, design: .rounded))
+                        }
+                        .toggleStyle(.switch)
 
-                    if liquidGlassEnabled {
-                        Divider()
-                            .padding(.vertical, Spacing.xs)
+                        if liquidGlassEnabled {
+                            Divider()
+                                .padding(.vertical, Spacing.xs)
 
-                        VStack(alignment: .leading, spacing: Spacing.xs) {
-                            Label("背景更新 (FPS)", systemImage: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
+                                Label("背景更新 (FPS)", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 12, design: .rounded))
+                                    .foregroundColor(.secondary)
 
-                            Picker("背景更新頻率", selection: $backgroundUpdateFPS) {
-                                ForEach(BackgroundUpdateFPS.allCases, id: \.self) { fps in
-                                    Text(fps.displayName).tag(fps)
+                                Picker("背景更新頻率", selection: $backgroundUpdateFPS) {
+                                    ForEach(BackgroundUpdateFPS.allCases, id: \.self) { fps in
+                                        Text(fps.displayName).tag(fps)
+                                    }
                                 }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
                             }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
                         }
                     }
                 }
@@ -393,6 +572,22 @@ private struct GeneralSettingsTab: View {
                     .toggleStyle(.switch)
                     .onChange(of: launchAtLogin) { _, newValue in
                         setLaunchAtLogin(newValue)
+                    }
+                }
+
+                // Notch Mode Card (only on Macs with notch)
+                if NotchGeometry.hasNotch {
+                    SettingsCard(title: "瀏海模式", icon: "rectangle.topthird.inset.filled") {
+                        Toggle(isOn: $notchModeEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label("瀏海模式", systemImage: "menubar.rectangle")
+                                    .font(.system(size: 13, design: .rounded))
+                                Text("在螢幕瀏海兩側顯示時鐘與計時器")
+                                    .font(.system(size: 11, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
                     }
                 }
 
@@ -418,12 +613,20 @@ private struct GeneralSettingsTab: View {
         }
         .onChange(of: liquidGlassEnabled) { saveSettings() }
         .onChange(of: backgroundUpdateFPS) { saveSettings() }
+        .onChange(of: notchModeEnabled) { _, newValue in
+            if newValue {
+                liquidGlassEnabled = false
+            }
+            saveSettings()
+            NotificationCenter.default.post(name: .notchModeChanged, object: newValue)
+        }
     }
 
     private func saveSettings() {
         var settings = timer.settings
         settings.liquidGlassEnabled = liquidGlassEnabled
         settings.backgroundUpdateFPS = backgroundUpdateFPS
+        settings.notchModeEnabled = notchModeEnabled
         timer.settings = settings
 
         NotificationCenter.default.post(name: .backgroundRefreshSettingsChanged, object: nil)
@@ -570,6 +773,8 @@ private struct ClockSettingsTab: View {
         settings.clockStyle = clockStyle
         settings.clockFontScale = clockFontScale
         timer.settings = settings
+        
+        NotificationCenter.default.post(name: .fontScaleChanged, object: nil)
     }
 }
 
@@ -828,8 +1033,11 @@ private struct PomodoroSettingsTab: View {
             clockStyle: timer.settings.clockStyle,
             pomodoroPosition: pomodoroPosition,
             liquidGlassEnabled: timer.settings.liquidGlassEnabled,
-            backgroundUpdateFPS: timer.settings.backgroundUpdateFPS
+            backgroundUpdateFPS: timer.settings.backgroundUpdateFPS,
+            notchModeEnabled: timer.settings.notchModeEnabled
         )
+        
+        NotificationCenter.default.post(name: .fontScaleChanged, object: nil)
     }
 }
 
@@ -968,6 +1176,8 @@ private struct CountdownSettingsTab: View {
         settings.position = countdownPosition
         settings.fontScale = countdownFontScale
         manager.settings = settings
+        
+        NotificationCenter.default.post(name: .fontScaleChanged, object: nil)
     }
 
     @ViewBuilder

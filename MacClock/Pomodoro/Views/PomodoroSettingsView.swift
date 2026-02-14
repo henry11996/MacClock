@@ -274,7 +274,8 @@ struct PomodoroSettingsView: View {
             clockStyle: timer.settings.clockStyle,
             pomodoroPosition: timer.settings.pomodoroPosition,
             liquidGlassEnabled: timer.settings.liquidGlassEnabled,
-            backgroundUpdateFPS: timer.settings.backgroundUpdateFPS
+            backgroundUpdateFPS: timer.settings.backgroundUpdateFPS,
+            notchModeEnabled: timer.settings.notchModeEnabled
         )
     }
 }

@@ -259,9 +259,9 @@ final class CountdownManager {
         // Set recently completed for animation
         recentlyCompletedTimerId = timerId
 
-        // Clear after 2 seconds
+        // Clear after 3 seconds
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: .seconds(3))
             if self.recentlyCompletedTimerId == timerId {
                 self.recentlyCompletedTimerId = nil
             }

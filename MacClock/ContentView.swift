@@ -403,6 +403,8 @@ extension Notification.Name {
     static let exitPomodoroFullScreen = Notification.Name("exitPomodoroFullScreen")
     static let backgroundRefreshSettingsChanged = Notification.Name("backgroundRefreshSettingsChanged")
     static let showSettings = Notification.Name("showSettings")
+    static let notchModeChanged = Notification.Name("notchModeChanged")
+    static let fontScaleChanged = Notification.Name("fontScaleChanged")
 }
 
 #Preview {

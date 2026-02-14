@@ -83,6 +83,7 @@ struct PomodoroSettings: Codable {
     var pomodoroPosition: PomodoroPosition
     var liquidGlassEnabled: Bool  // Liquid Glass 效果開關
     var backgroundUpdateFPS: BackgroundUpdateFPS  // 背景更新 FPS
+    var notchModeEnabled: Bool  // 瀏海模式開關
 
     static var `default`: PomodoroSettings {
         PomodoroSettings(
@@ -99,7 +100,8 @@ struct PomodoroSettings: Codable {
             clockStyle: .standard,
             pomodoroPosition: .hidden,
             liquidGlassEnabled: false,
-            backgroundUpdateFPS: .disabled
+            backgroundUpdateFPS: .disabled,
+            notchModeEnabled: false
         )
     }
 

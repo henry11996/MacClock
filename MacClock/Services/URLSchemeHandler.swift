@@ -30,6 +30,8 @@ struct URLSchemeHandler {
             return handlePomodoro(params: params)
         case "schedule":
             return handleSchedule(params: params)
+        case "notch":
+            return handleNotch(params: params)
         case "status":
             return handleStatus()
         default:
@@ -325,6 +327,38 @@ struct URLSchemeHandler {
         }
 
         return "已新增排程「\(label)」於 \(timeStr)"
+    }
+
+    // MARK: - Notch Commands
+
+    private static func handleNotch(params: [String: String]) -> String {
+        guard NotchGeometry.hasNotch else {
+            return "錯誤：此 Mac 沒有瀏海，不支援瀏海模式"
+        }
+
+        let action = params["action"] ?? "toggle"
+        var settings = PomodoroTimer.shared.settings
+
+        switch action {
+        case "enable":
+            settings.notchModeEnabled = true
+            PomodoroTimer.shared.settings = settings
+            NotificationCenter.default.post(name: .notchModeChanged, object: true)
+            return "瀏海模式已啟用"
+        case "disable":
+            settings.notchModeEnabled = false
+            PomodoroTimer.shared.settings = settings
+            NotificationCenter.default.post(name: .notchModeChanged, object: false)
+            return "瀏海模式已停用"
+        case "toggle":
+            let newState = !settings.notchModeEnabled
+            settings.notchModeEnabled = newState
+            PomodoroTimer.shared.settings = settings
+            NotificationCenter.default.post(name: .notchModeChanged, object: newState)
+            return newState ? "瀏海模式已啟用" : "瀏海模式已停用"
+        default:
+            return "錯誤：未知動作 '\(action)'（支援：toggle/enable/disable）"
+        }
     }
 
     // MARK: - Status Query
