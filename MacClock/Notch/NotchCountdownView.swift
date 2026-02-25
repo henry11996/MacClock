@@ -50,95 +50,97 @@ struct NotchCountdownView: View {
 
     var body: some View {
         let _ = manager.tickCount
-        return VStack(alignment: .leading, spacing: 0) {
-            // Primary Row (Always Visible)
-            HStack(spacing: 12) {
-                // Pomodoro Status
-                if pomodoroIsActive {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(pomodoroPhaseColor)
-                            .frame(width: 6, height: 6)
-                        
-                        Text(pomodoro.formattedTime)
-                            .font(.system(size: 13, weight: .medium, design: .monospaced))
-                            .foregroundStyle(pomodoroPhaseColor)
-                    }
-                    .opacity(pomodoro.timerState == .paused ? 0.6 : 1.0)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        NotificationCenter.default.post(name: .showSettings, object: SettingsTab.pomodoro)
-                    }
-                    
-                    if urgentTimer != nil {
-                        Rectangle()
-                            .fill(.white.opacity(0.2))
-                            .frame(width: 1, height: 12)
-                    }
-                }
+        if manager.settings.isEnabled {
+            VStack(alignment: .leading, spacing: 0) {
+                // Primary Row (Always Visible)
+                HStack(spacing: 12) {
+                    // Pomodoro Status
+                    if pomodoroIsActive {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(pomodoroPhaseColor)
+                                .frame(width: 6, height: 6)
 
-                // Urgent Countdown Timer
-                if let timer = urgentTimer {
-                    singleTimerView(timer, showControls: false)
+                            Text(pomodoro.formattedTime)
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .foregroundStyle(pomodoroPhaseColor)
+                        }
+                        .opacity(pomodoro.timerState == .paused ? 0.6 : 1.0)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            NotificationCenter.default.post(name: .showSettings, object: SettingsTab.pomodoro)
+                        }
+
+                        if urgentTimer != nil {
+                            Rectangle()
+                                .fill(.white.opacity(0.2))
+                                .frame(width: 1, height: 12)
+                        }
+                    }
+
+                    // Urgent Countdown Timer
+                    if let timer = urgentTimer {
+                        singleTimerView(timer, showControls: false)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                NotificationCenter.default.post(name: .showSettings, object: SettingsTab.countdown)
+                            }
+                    } else if !pomodoroIsActive {
+                        // Placeholder when completely empty
+                        HStack(spacing: 6) {
+                            Image(systemName: "timer")
+                                .font(.system(size: 12))
+                        }
+                        .foregroundStyle(.white.opacity(0.3))
                         .contentShape(Rectangle())
                         .onTapGesture {
                             NotificationCenter.default.post(name: .showSettings, object: SettingsTab.countdown)
                         }
-                } else if !pomodoroIsActive {
-                    // Placeholder when completely empty
-                    HStack(spacing: 6) {
-                        Image(systemName: "timer")
-                            .font(.system(size: 12))
-                    }
-                    .foregroundStyle(.white.opacity(0.3))
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        NotificationCenter.default.post(name: .showSettings, object: SettingsTab.countdown)
                     }
                 }
-            }
-            .frame(height: NotchGeometry.menuBarHeight)
-            .padding(.horizontal, 12)
+                .frame(height: NotchGeometry.menuBarHeight)
+                .padding(.horizontal, 12)
 
-            // Expanded List (Visible on Hover)
-            if isHovered && !manager.timers.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    Divider()
-                        .background(.white.opacity(0.1))
-                    
-                    ForEach(manager.timers) { timer in
-                        HStack {
-                            singleTimerView(timer, showControls: true)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.05))
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            toggleTimer(timer)
+                // Expanded List (Visible on Hover)
+                if isHovered && !manager.timers.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Divider()
+                            .background(.white.opacity(0.1))
+
+                        ForEach(manager.timers) { timer in
+                            HStack {
+                                singleTimerView(timer, showControls: true)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.05))
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                toggleTimer(timer)
+                            }
                         }
                     }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-        }
-        .frame(minWidth: 80, alignment: .leading)
-        .fixedSize(horizontal: true, vertical: true)
-        .background(.black)
-        .clipShape(.rect(bottomLeadingRadius: 10, bottomTrailingRadius: 10))
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovered = hovering
+            .frame(minWidth: 80, alignment: .leading)
+            .fixedSize(horizontal: true, vertical: true)
+            .background(.black)
+            .clipShape(.rect(bottomLeadingRadius: 10, bottomTrailingRadius: 10))
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isHovered = hovering
+                }
             }
-        }
-        .contextMenu {
-            Button("關閉瀏海模式") {
-                NotificationCenter.default.post(name: .notchModeChanged, object: false)
-            }
-            Divider()
-            Button("計時器設定...") {
-                NotificationCenter.default.post(name: .showSettings, object: SettingsTab.countdown)
+            .contextMenu {
+                Button("關閉瀏海模式") {
+                    NotificationCenter.default.post(name: .notchModeChanged, object: false)
+                }
+                Divider()
+                Button("計時器設定...") {
+                    NotificationCenter.default.post(name: .showSettings, object: SettingsTab.countdown)
+                }
             }
         }
     }
