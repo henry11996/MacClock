@@ -28,6 +28,7 @@ enum SettingsTab: String, CaseIterable {
     case countdown = "countdown"
     case schedule = "schedule"
     case ocr = "ocr"
+    case clothesline = "clothesline"
 
     var title: String {
         switch self {
@@ -37,6 +38,7 @@ enum SettingsTab: String, CaseIterable {
         case .countdown: return "計時器"
         case .schedule: return "排程"
         case .ocr: return "文字辨識"
+        case .clothesline: return "晾衣繩"
         }
     }
 
@@ -48,6 +50,7 @@ enum SettingsTab: String, CaseIterable {
         case .countdown: return "hourglass"
         case .schedule: return "calendar.badge.clock"
         case .ocr: return "text.viewfinder"
+        case .clothesline: return "photo.on.rectangle.angled"
         }
     }
 }
@@ -152,6 +155,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Register the screen OCR global hotkey
         OCRCoordinator.shared.start()
+
+        // Screenshot clothesline (watch folder + notch reveal panel)
+        ClotheslineStore.shared.start()
+        ClotheslinePanelController.shared.start()
 
         // Notch mode observers
         NotificationCenter.default.addObserver(

@@ -81,6 +81,7 @@ final class OCRCoordinator {
         let currentSettings = settings
         do {
             let image = try await ScreenCaptureService.capture(appKitRect: rect)
+            ClotheslineStore.shared.hangCapture(image)
             let fragments = try await TextRecognizer.recognize(
                 image,
                 options: TextRecognitionOptions(settings: currentSettings)

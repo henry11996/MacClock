@@ -23,6 +23,7 @@ A minimal, elegant floating clock, timer, and screen-text capture tool for macOS
 
 - **Floating Clock** – An always-on-top clock widget with multiple display styles
 - **Screen Text Capture (OCR)** – Select any region of the screen and copy its text instantly, like TextSniper or Capture2Text
+- **Screenshot Clothesline** – New screenshots hang on a line under the notch; rest the pointer on the notch to lower it
 - **Countdown Timers** – Run multiple countdowns at the same time
 - **Pomodoro Timer** – Work/break cycles with an optional full-screen break reminder
 - **Schedule** – Automatically run actions at a set time, daily, on weekdays, or at intervals
@@ -44,6 +45,16 @@ Press **⇧⌘2**, drag over any text on screen, and the recognized text is copi
 - Can also be triggered with `macclock://ocr` or from Shortcuts/Siri
 
 > The first time you use it, allow MacClock under **System Settings → Privacy & Security → Screen & System Audio Recording**, then relaunch the app.
+
+## Screenshot Clothesline
+
+Inspired by [Tendedero](https://github.com/alejandrobujan/tendedero) (MIT).
+
+- Choose your screenshot folder once in **Settings → Clothesline**. The picker opens at your system screenshot location.
+- Take screenshots as usual (⌘⇧3/4/5). Each new one hangs on a line under the notch.
+- Rest the pointer on the notch to lower the line. **Click** to copy, **double-click** to open in Preview, **drag** into any app or folder, and hover then **✕** to take it down. Taking an image down never deletes your file.
+- Regions you capture with OCR can hang on the line too.
+- MacClock only reads the folder you choose. It stays sandboxed.
 
 ## Installation
 

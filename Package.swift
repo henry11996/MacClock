@@ -12,7 +12,7 @@ let package = Package(
         .executableTarget(
             name: "MacClock",
             path: "MacClock",
-            exclude: ["Assets.xcassets", "Info.plist"]
+            exclude: ["Assets.xcassets", "Info.plist", "MacClock.entitlements"]
         ),
         .testTarget(
             name: "MacClockTests",

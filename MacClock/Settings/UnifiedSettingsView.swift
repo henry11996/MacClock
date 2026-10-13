@@ -34,6 +34,8 @@ struct UnifiedSettingsView: View {
                     ScheduleSettingsTab(onClose: onClose)
                 case .ocr:
                     OCRSettingsTab(onClose: onClose)
+                case .clothesline:
+                    ClotheslineSettingsTab(onClose: onClose)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

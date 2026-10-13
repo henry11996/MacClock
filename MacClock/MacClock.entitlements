@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 記住使用者選擇的截圖資料夾（security-scoped bookmark） -->
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+	<!-- 唯讀：讀取系統截圖存放位置，作為選擇資料夾時的預設值 -->
+	<key>com.apple.security.temporary-exception.shared-preference.read-only</key>
+	<array>
+		<string>com.apple.screencapture</string>
+	</array>
+</dict>
+</plist>
