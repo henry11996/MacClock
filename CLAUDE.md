@@ -56,6 +56,13 @@ All timer systems use singletons with `@Observable` pattern:
 - `ScheduleSettings` - Position, font scale, max visible settings
 - Views: SettingsTab, EditSheet, WidgetView
 
+**OCR** (`MacClock/OCR/`)
+- `OCRCoordinator` - Hotkey → region selection → ScreenCaptureKit capture → Vision OCR → clipboard + toast
+- `GlobalHotKeyService` - Carbon `RegisterEventHotKey` (default ⇧⌘2, no Accessibility permission needed)
+- `ScreenCaptureService` / `CaptureGeometry` - Capture with own windows excluded; AppKit↔CG coordinate conversion
+- `TextRecognizer` / `OCRTextFormatter` - `VNRecognizeTextRequest` (on-device) and reading-order/CJK-aware joining
+- Requires Screen Recording permission; settings in `OCRSettings` (UserDefaults key `ocrSettings`)
+
 ### URL Scheme API
 
 The app responds to `macclock://` URLs handled by `URLSchemeHandler`:
@@ -77,6 +84,9 @@ macclock://schedule?action=add&time=18:00&do=notify&title=提醒&msg=下班了&r
 macclock://schedule?action=list
 macclock://schedule?action=toggle&label=開始工作
 macclock://schedule?action=remove&label=開始工作
+
+# Screen OCR (select region, copy text to clipboard)
+macclock://ocr
 
 # Status query
 macclock://status
@@ -115,6 +125,12 @@ All settings use `UserDefaults` with JSON encoding:
 - `PomodoroSettings` / `PomodoroSessionState`
 - `CountdownSettings` / `CountdownTimer` array
 - `ScheduleSettings` / `Schedule` array (via ScheduleManager)
+
+## Tests
+
+```bash
+swift test   # Swift Testing suites in Tests/MacClockTests
+```
 
 ## Key Patterns
 

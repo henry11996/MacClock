@@ -29,5 +29,15 @@ struct MacClockShortcuts: AppShortcutsProvider {
             shortTitle: "Pomodoro",
             systemImageName: "clock.badge.checkmark"
         )
+
+        AppShortcut(
+            intent: CaptureTextIntent(),
+            phrases: [
+                "Capture text with \(.applicationName)",
+                "用 \(.applicationName) 擷取螢幕文字"
+            ],
+            shortTitle: "Capture Text",
+            systemImageName: "text.viewfinder"
+        )
     }
 }

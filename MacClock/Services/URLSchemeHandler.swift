@@ -34,6 +34,9 @@ struct URLSchemeHandler {
             return handleNotch(params: params)
         case "status":
             return handleStatus()
+        case "ocr":
+            OCRCoordinator.shared.startCapture()
+            return "已開始擷取文字"
         default:
             return "錯誤：未知指令 '\(host)'"
         }

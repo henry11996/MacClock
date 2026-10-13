@@ -29,6 +29,7 @@ enum SettingsTab: String, CaseIterable {
     case pomodoro = "pomodoro"
     case countdown = "countdown"
     case schedule = "schedule"
+    case ocr = "ocr"
 
     var title: String {
         switch self {
@@ -37,6 +38,7 @@ enum SettingsTab: String, CaseIterable {
         case .pomodoro: return "番茄鐘"
         case .countdown: return "計時器"
         case .schedule: return "排程"
+        case .ocr: return "文字辨識"
         }
     }
 
@@ -47,6 +49,7 @@ enum SettingsTab: String, CaseIterable {
         case .pomodoro: return "timer"
         case .countdown: return "hourglass"
         case .schedule: return "calendar.badge.clock"
+        case .ocr: return "text.viewfinder"
         }
     }
 }
@@ -148,6 +151,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Initialize ScheduleManager to start checking schedules
         _ = ScheduleManager.shared
+
+        // Register the screen OCR global hotkey
+        OCRCoordinator.shared.start()
 
         // Notch mode observers
         NotificationCenter.default.addObserver(
@@ -438,6 +444,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         if let window = notification.object as? NSWindow, window == settingsWindow {
             settingsWindow = nil
+            // 保險：若關閉視窗時正在錄製快捷鍵，確保全域快捷鍵恢復
+            OCRCoordinator.shared.resumeHotKey()
         }
     }
 
@@ -499,6 +507,8 @@ struct UnifiedSettingsView: View {
                 CountdownSettingsTab(onClose: onClose)
             case .schedule:
                 ScheduleSettingsTab(onClose: onClose)
+            case .ocr:
+                OCRSettingsTab(onClose: onClose)
             }
         }
         .frame(minWidth: 520, minHeight: 400)

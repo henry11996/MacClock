@@ -14,5 +14,10 @@ let package = Package(
             path: "MacClock",
             exclude: ["Assets.xcassets", "Info.plist"]
         ),
+        .testTarget(
+            name: "MacClockTests",
+            dependencies: ["MacClock"],
+            path: "Tests/MacClockTests"
+        ),
     ]
 )
