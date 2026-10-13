@@ -55,11 +55,32 @@ struct OCRToastLayoutTests {
         #expect(frame.width == 0)
     }
 
-    @Test("展開後往下延伸、頂端不變")
-    func expandedFrame() {
-        let base = CGRect(x: 838, y: 950, width: 260, height: 32)
-        let frame = OCRToastLayout.expandedNotchFrame(base, extraHeight: 6)
-        #expect(frame == CGRect(x: 838, y: 944, width: 260, height: 38))
-        #expect(frame.maxY == base.maxY)
+    @Test("滑出版面：panel 從瀏海左緣開始、高度與瀏海相同")
+    func slideLayout() {
+        let layout = OCRToastLayout.notchSlideLayout(notchRect: notch, screenFrame: screen, contentWidth: 260)
+        #expect(layout.panelFrame.minX == notch.minX)
+        #expect(layout.panelFrame.minY == notch.minY)
+        #expect(layout.panelFrame.height == notch.height)
+        #expect(layout.toastWidth == 260)
+        // 展開後左緣在瀏海右緣往內 overlap 處
+        #expect(layout.panelFrame.minX + layout.restX == notch.maxX - OCRToastLayout.notchOverlap)
+        #expect(layout.panelFrame.maxX == notch.maxX - OCRToastLayout.notchOverlap + 260)
+    }
+
+    @Test("收合時提示右緣藏在瀏海內")
+    func slideHiddenInsideNotch() {
+        let layout = OCRToastLayout.notchSlideLayout(notchRect: notch, screenFrame: screen, contentWidth: 260)
+        let hiddenRightEdge = layout.panelFrame.minX + layout.restX + layout.hiddenOffset + layout.toastWidth
+        #expect(hiddenRightEdge <= notch.maxX)
+    }
+
+    @Test("往下彈出：與瀏海置中、頂端貼齊螢幕上緣")
+    func dropLayout() {
+        let layout = OCRToastLayout.notchDropLayout(notchRect: notch)
+        #expect(layout.panelFrame.midX == notch.midX)
+        #expect(layout.panelFrame.maxY == notch.maxY)
+        #expect(layout.panelFrame.width == notch.width + OCRToastLayout.dropExtraWidth * 2)
+        #expect(layout.collapsedHeight == notch.height)
+        #expect(layout.contentHeight == OCRToastLayout.dropContentHeight)
     }
 }

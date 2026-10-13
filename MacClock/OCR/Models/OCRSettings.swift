@@ -33,13 +33,19 @@ nonisolated enum OCRLanguage: String, Codable, CaseIterable, Sendable {
 
 /// 辨識完成提示的顯示位置
 nonisolated enum OCRToastPosition: String, Codable, CaseIterable, Sendable {
-    /// 瀏海右側（沒有瀏海的螢幕會改顯示在畫面上方）
+    /// 從瀏海內往右滑出（沒有瀏海的螢幕會改顯示在畫面上方）
     case notchRight
+    /// 從瀏海往下彈出，與瀏海同寬置中
+    case notchBelow
     case topCenter
+
+    /// 是否為依附瀏海的樣式
+    var usesNotch: Bool { self != .topCenter }
 
     var displayName: String {
         switch self {
         case .notchRight: return "瀏海右側"
+        case .notchBelow: return "瀏海下方"
         case .topCenter: return "畫面上方"
         }
     }

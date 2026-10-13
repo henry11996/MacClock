@@ -206,7 +206,9 @@ struct OCRSettingsTab: View {
     private var toastPositionSubtitle: String {
         switch settings.toastPosition {
         case .notchRight:
-            return hasNotch ? "從瀏海延伸出來，不遮擋畫面" : "此 Mac 沒有瀏海，會顯示在畫面上方"
+            return hasNotch ? "從瀏海裡往右滑出，幾秒後收回" : "此 Mac 沒有瀏海，會顯示在畫面上方"
+        case .notchBelow:
+            return hasNotch ? "從瀏海往下彈出，幾秒後收回" : "此 Mac 沒有瀏海，會顯示在畫面上方"
         case .topCenter:
             return "顯示在畫面上方中央，可看到較多預覽文字"
         }

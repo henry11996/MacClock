@@ -27,9 +27,56 @@ nonisolated enum OCRToastLayout {
         )
     }
 
-    /// 由瀏海右側的基本位置往下延伸 extraHeight（頂端維持貼齊螢幕上緣）
-    static func expandedNotchFrame(_ base: CGRect, extraHeight: CGFloat) -> CGRect {
-        CGRect(x: base.minX, y: base.minY - extraHeight, width: base.width, height: base.height + extraHeight)
+    /// 從瀏海內滑出的版面
+    /// - panelFrame: 左緣延伸到瀏海內側（實體瀏海為黑色，畫在其中不可見），右緣到提示展開後的位置
+    /// - restX: 提示展開後在 panel 內的 x（即瀏海右緣往內 notchOverlap）
+    /// - hiddenOffset: 收合時的水平位移，讓提示的右緣剛好藏在瀏海右緣內
+    struct NotchSlideLayout: Equatable {
+        let panelFrame: CGRect
+        let toastWidth: CGFloat
+        let restX: CGFloat
+        var hiddenOffset: CGFloat { -toastWidth }
+    }
+
+    static func notchSlideLayout(notchRect: CGRect, screenFrame: CGRect, contentWidth: CGFloat) -> NotchSlideLayout {
+        let visible = notchRightFrame(notchRect: notchRect, screenFrame: screenFrame, contentWidth: contentWidth)
+        let panelFrame = CGRect(
+            x: notchRect.minX,
+            y: notchRect.minY,
+            width: visible.maxX - notchRect.minX,
+            height: notchRect.height
+        )
+        return NotchSlideLayout(
+            panelFrame: panelFrame,
+            toastWidth: visible.width,
+            restX: visible.minX - notchRect.minX
+        )
+    }
+
+    /// 從瀏海往下彈出的版面：與瀏海同寬置中，收合時高度等於瀏海（完全藏在瀏海後方）
+    struct NotchDropLayout: Equatable {
+        let panelFrame: CGRect
+        let collapsedHeight: CGFloat
+        var contentHeight: CGFloat { panelFrame.height - collapsedHeight }
+    }
+
+    /// 往下彈出時左右各比瀏海寬出的距離（0 = 與瀏海同寬，避免蓋到兩側的瀏海面板）
+    static let dropExtraWidth: CGFloat = 0
+    /// 往下彈出時內容列的高度
+    static let dropContentHeight: CGFloat = 40
+
+    static func notchDropLayout(notchRect: CGRect) -> NotchDropLayout {
+        let width = notchRect.width + dropExtraWidth * 2
+        let height = notchRect.height + dropContentHeight
+        return NotchDropLayout(
+            panelFrame: CGRect(
+                x: notchRect.midX - width / 2,
+                y: notchRect.maxY - height,
+                width: width,
+                height: height
+            ),
+            collapsedHeight: notchRect.height
+        )
     }
 
     /// 顯示在可視區上方中央

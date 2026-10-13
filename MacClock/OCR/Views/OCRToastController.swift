@@ -20,9 +20,9 @@ final class OCRToastController {
     private static let displayDuration: Duration = .seconds(2.5)
     private static let fadeInDuration: TimeInterval = 0.15
     private static let fadeOutDuration: TimeInterval = 0.25
-    private static let expandAnimation: Animation = .spring(response: 0.42, dampingFraction: 0.72)
-    private static let collapseAnimation: Animation = .spring(response: 0.32, dampingFraction: 0.95)
-    private static let collapseDuration: Duration = .milliseconds(450)
+    private static let expandAnimation: Animation = .spring(response: 0.45, dampingFraction: 0.78)
+    private static let collapseAnimation: Animation = .easeIn(duration: 0.28)
+    private static let collapseDuration: Duration = .milliseconds(350)
     private static let previewLimit = 120
     static let width: CGFloat = 340
     /// 瀏海提示的最大寬度（含圖示與標題）
@@ -45,18 +45,26 @@ final class OCRToastController {
         panel = nil
 
         let preview = Self.preview(of: message)
-        if position == .notchRight, let screen = NotchGeometry.screenWithNotch,
+        if position.usesNotch, let screen = NotchGeometry.screenWithNotch,
            Self.isOnScreen(rect, screen: screen) {
-            presentNotch(title: title, message: preview, style: style, screen: screen)
+            presentNotch(title: title, message: preview, style: style, position: position, screen: screen)
         } else {
             presentCard(title: title, message: preview, style: style, near: rect)
         }
     }
 
     /// 瀏海樣式：從瀏海右緣彈出（彈簧展開），停留後縮回瀏海
-    private func presentNotch(title: String, message: String, style: Style, screen: NSScreen) {
+    private func presentNotch(
+        title: String,
+        message: String,
+        style: Style,
+        position: OCRToastPosition,
+        screen: NSScreen
+    ) {
         let state = NotchToastState()
-        let newPanel = makeNotchPanel(title: title, message: message, style: style, screen: screen, state: state)
+        let newPanel = position == .notchBelow
+            ? makeNotchDropPanel(title: title, message: message, style: style, state: state)
+            : makeNotchPanel(title: title, message: message, style: style, screen: screen, state: state)
         newPanel.orderFrontRegardless()
         panel = newPanel
 
@@ -141,22 +149,33 @@ final class OCRToastController {
         )
         // 先量內容的理想寬度，再依螢幕可用寬度決定展開後的大小
         let idealWidth = NSHostingView(rootView: content.fixedSize()).fittingSize.width
-        let baseFrame = OCRToastLayout.notchRightFrame(
+        let layout = OCRToastLayout.notchSlideLayout(
             notchRect: notch,
             screenFrame: screen.frame,
             contentWidth: min(idealWidth, Self.notchMaxWidth)
         )
-        // 展開時往下多長出一點，像從瀏海掉出來的通知
-        let frame = OCRToastLayout.expandedNotchFrame(baseFrame, extraHeight: OCRNotchToastView.extraHeight)
         let hosting = NSHostingView(rootView: OCRNotchToastView(
             content: content,
             state: state,
-            expandedSize: frame.size,
-            collapsedHeight: notch.height,
-            collapsedWidth: OCRToastLayout.notchOverlap
+            layout: layout
         ))
-        hosting.frame = NSRect(origin: .zero, size: frame.size)
-        let newPanel = makeBasePanel(frame: frame, level: Self.notchLevel, hasShadow: false)
+        hosting.frame = NSRect(origin: .zero, size: layout.panelFrame.size)
+        let newPanel = makeBasePanel(frame: layout.panelFrame, level: Self.notchLevel, hasShadow: false)
+        newPanel.contentView = hosting
+        return newPanel
+    }
+
+    private func makeNotchDropPanel(title: String, message: String, style: Style, state: NotchToastState) -> NSPanel {
+        let layout = OCRToastLayout.notchDropLayout(notchRect: NotchGeometry.notchRect)
+        let hosting = NSHostingView(rootView: OCRNotchDropToastView(
+            title: title,
+            message: message,
+            style: style,
+            state: state,
+            layout: layout
+        ))
+        hosting.frame = NSRect(origin: .zero, size: layout.panelFrame.size)
+        let newPanel = makeBasePanel(frame: layout.panelFrame, level: Self.notchLevel, hasShadow: false)
         newPanel.contentView = hosting
         return newPanel
     }
@@ -237,37 +256,76 @@ private struct OCRNotchToastContent: View {
     }
 }
 
-/// 瀏海右側樣式：黑色形狀從瀏海右緣長出（變寬、往下長），收合時縮回瀏海
+/// 瀏海右側樣式：黑色長條藏在瀏海內，展開時由左往右滑出，收合時滑回瀏海
 private struct OCRNotchToastView: View {
-    static let extraHeight: CGFloat = 6
-    private static let expandedRadius: CGFloat = 14
-    private static let collapsedRadius: CGFloat = 6
+    private static let cornerRadius: CGFloat = 10
 
     let content: OCRNotchToastContent
     let state: NotchToastState
-    let expandedSize: CGSize
-    let collapsedHeight: CGFloat
-    /// 收合時藏在瀏海後方的寬度
-    let collapsedWidth: CGFloat
+    let layout: OCRToastLayout.NotchSlideLayout
 
     var body: some View {
         let expanded = state.isExpanded
-        let radius = expanded ? Self.expandedRadius : Self.collapsedRadius
-        ZStack(alignment: .leading) {
-            Color.black
-            content
-                .frame(width: expandedSize.width, height: expandedSize.height, alignment: .leading)
-                .opacity(expanded ? 1 : 0)
-                .blur(radius: expanded ? 0 : 6)
-                .scaleEffect(expanded ? 1 : 0.85, anchor: .leading)
+        content
+            .frame(width: layout.toastWidth, height: layout.panelFrame.height, alignment: .leading)
+            .opacity(expanded ? 1 : 0)
+            .background(.black)
+            .clipShape(.rect(bottomLeadingRadius: Self.cornerRadius, bottomTrailingRadius: Self.cornerRadius))
+            .offset(x: layout.restX + (expanded ? 0 : layout.hiddenOffset))
+            .frame(width: layout.panelFrame.width, height: layout.panelFrame.height, alignment: .leading)
+            // panel 左側位於瀏海內；超出 panel 的部分裁掉，避免收合時從瀏海左邊露出
+            .clipped()
+            .accessibilityElement(children: .combine)
+    }
+}
+
+/// 瀏海下方樣式：黑色形狀與瀏海融為一體，展開時往下長出兩行內容，收合時縮回瀏海
+private struct OCRNotchDropToastView: View {
+    private static let cornerRadius: CGFloat = 16
+
+    let title: String
+    let message: String
+    let style: OCRToastController.Style
+    let state: NotchToastState
+    let layout: OCRToastLayout.NotchDropLayout
+
+    var body: some View {
+        let expanded = state.isExpanded
+        VStack(spacing: 0) {
+            Color.clear.frame(height: layout.collapsedHeight)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 5) {
+                    Image(systemName: style.iconName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(style.tint)
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(width: layout.panelFrame.width, height: layout.contentHeight, alignment: .leading)
+            .opacity(expanded ? 1 : 0)
         }
         .frame(
-            width: expanded ? expandedSize.width : collapsedWidth,
-            height: expanded ? expandedSize.height : collapsedHeight,
-            alignment: .leading
+            width: layout.panelFrame.width,
+            height: expanded ? layout.panelFrame.height : layout.collapsedHeight,
+            alignment: .top
         )
-        .clipShape(.rect(bottomLeadingRadius: radius, bottomTrailingRadius: radius))
-        .frame(width: expandedSize.width, height: expandedSize.height, alignment: .topLeading)
+        .background(.black)
+        .clipShape(.rect(
+            bottomLeadingRadius: expanded ? Self.cornerRadius : 8,
+            bottomTrailingRadius: expanded ? Self.cornerRadius : 8
+        ))
+        .frame(width: layout.panelFrame.width, height: layout.panelFrame.height, alignment: .top)
         .accessibilityElement(children: .combine)
     }
 }

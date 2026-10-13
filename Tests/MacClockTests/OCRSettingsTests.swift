@@ -133,4 +133,12 @@ struct OCRSettingsTests {
         #expect(OCRLanguage.toggled(.english, isOn: true, in: [.english]) == [.english])
         #expect(OCRLanguage.toggled(.korean, isOn: false, in: []).isEmpty)
     }
+
+    @Test("瀏海下方樣式可存取")
+    func notchBelowDecoding() throws {
+        let saved = try JSONDecoder().decode(OCRSettings.self, from: Data(#"{"toastPosition": "notchBelow"}"#.utf8))
+        #expect(saved.toastPosition == .notchBelow)
+        #expect(OCRToastPosition.notchBelow.usesNotch)
+        #expect(!OCRToastPosition.topCenter.usesNotch)
+    }
 }
