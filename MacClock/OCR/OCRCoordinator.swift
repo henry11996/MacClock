@@ -114,7 +114,18 @@ final class OCRCoordinator {
 
     private func showToast(title: String, message: String, style: OCRToastController.Style, near rect: CGRect?) {
         guard settings.showResultToast || style == .warning else { return }
-        toast.show(title: title, message: message, style: style, near: rect)
+        toast.show(title: title, message: message, style: style, position: settings.toastPosition, near: rect)
+    }
+
+    /// 設定頁「試試看」：用目前設定顯示一次範例提示
+    func previewToast() {
+        toast.show(
+            title: "已複製 12 個字元",
+            message: "Hello 範例文字 MacClock",
+            style: .success,
+            position: settings.toastPosition,
+            near: nil
+        )
     }
 
     private func handleMissingPermission() {

@@ -24,6 +24,25 @@ nonisolated enum OCRLanguage: String, Codable, CaseIterable, Sendable {
         case .korean: return "韓文"
         }
     }
+    /// 切換某語言的選取狀態，結果依 allCases 順序排列以維持穩定的優先順序
+    static func toggled(_ language: OCRLanguage, isOn: Bool, in current: [OCRLanguage]) -> [OCRLanguage] {
+        let others = Set(current.filter { $0 != language })
+        return allCases.filter { others.contains($0) || (isOn && $0 == language) }
+    }
+}
+
+/// 辨識完成提示的顯示位置
+nonisolated enum OCRToastPosition: String, Codable, CaseIterable, Sendable {
+    /// 瀏海右側（沒有瀏海的螢幕會改顯示在畫面上方）
+    case notchRight
+    case topCenter
+
+    var displayName: String {
+        switch self {
+        case .notchRight: return "瀏海右側"
+        case .topCenter: return "畫面上方"
+        }
+    }
 }
 
 nonisolated struct OCRSettings: Codable, Equatable, Sendable {
@@ -39,6 +58,7 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
     var playSound: Bool
     /// 框選時遮罩的深淺（0 = 不變暗，上限見 maxOverlayDimOpacity）
     var overlayDimOpacity: Double
+    var toastPosition: OCRToastPosition
 
     static let defaultOverlayDimOpacity: Double = 0.28
     static let maxOverlayDimOpacity: Double = 0.6
@@ -65,7 +85,8 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
             keepLineBreaks: true,
             showResultToast: true,
             playSound: true,
-            overlayDimOpacity: defaultOverlayDimOpacity
+            overlayDimOpacity: defaultOverlayDimOpacity,
+            toastPosition: .notchRight
         )
     }
 
@@ -85,6 +106,9 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         overlayDimOpacity = Self.clampedDimOpacity(
             try container.decodeIfPresent(Double.self, forKey: .overlayDimOpacity) ?? fallback.overlayDimOpacity
         )
+        // 未知的值（例如未來版本新增的位置）退回預設
+        toastPosition = (try? container.decodeIfPresent(OCRToastPosition.self, forKey: .toastPosition))
+            .flatMap { $0 } ?? fallback.toastPosition
     }
 
     init(
@@ -96,7 +120,8 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         keepLineBreaks: Bool,
         showResultToast: Bool,
         playSound: Bool,
-        overlayDimOpacity: Double
+        overlayDimOpacity: Double,
+        toastPosition: OCRToastPosition = .notchRight
     ) {
         self.hotKeyEnabled = hotKeyEnabled
         self.hotKey = hotKey
@@ -107,6 +132,7 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         self.showResultToast = showResultToast
         self.playSound = playSound
         self.overlayDimOpacity = Self.clampedDimOpacity(overlayDimOpacity)
+        self.toastPosition = toastPosition
     }
 
     /// 回傳修改過的新副本

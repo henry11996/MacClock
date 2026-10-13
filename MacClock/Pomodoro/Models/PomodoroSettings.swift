@@ -68,7 +68,7 @@ enum BackgroundUpdateFPS: Int, Codable, CaseIterable {
 }
 
 /// User-configurable settings for the Pomodoro timer
-struct PomodoroSettings: Codable {
+struct PomodoroSettings: Codable, Equatable {
     var workDuration: TimeInterval  // in seconds
     var shortBreakDuration: TimeInterval
     var longBreakDuration: TimeInterval

@@ -7,53 +7,6 @@
 
 import SwiftUI
 
-/// Card-style settings section
-struct SettingsCard<Content: View>: View {
-    let title: String
-    let icon: String
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            // Section header
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(ThemeColors.primary)
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
-            }
-
-            // Content
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                content()
-            }
-            .padding(Spacing.md)
-            .background(Color.primary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-        }
-    }
-}
-
-/// Settings row with consistent styling
-struct SettingsRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 13, design: .rounded))
-            Spacer()
-            Text(value)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 80, alignment: .trailing)
-        }
-    }
-}
-
 struct PomodoroSettingsView: View {
     @Bindable var timer: PomodoroTimer
     @Binding var isPresented: Bool

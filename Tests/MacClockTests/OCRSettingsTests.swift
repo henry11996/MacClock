@@ -114,4 +114,23 @@ struct OCRSettingsTests {
         #expect(settings.overlayDimOpacity == 0)
         #expect(settings.drawnDimOpacity == OCRSettings.minimumDrawnDimOpacity)
     }
+
+    @Test("提示位置預設為瀏海右側，舊資料缺欄位或未知值時使用預設")
+    func toastPositionDecoding() throws {
+        #expect(OCRSettings.default.toastPosition == .notchRight)
+        let missing = try JSONDecoder().decode(OCRSettings.self, from: Data("{}".utf8))
+        #expect(missing.toastPosition == .notchRight)
+        let unknown = try JSONDecoder().decode(OCRSettings.self, from: Data(#"{"toastPosition": "bottomLeft"}"#.utf8))
+        #expect(unknown.toastPosition == .notchRight)
+        let saved = try JSONDecoder().decode(OCRSettings.self, from: Data(#"{"toastPosition": "topCenter"}"#.utf8))
+        #expect(saved.toastPosition == .topCenter)
+    }
+
+    @Test("切換語言時維持 allCases 順序")
+    func languageToggleOrder() {
+        #expect(OCRLanguage.toggled(.traditionalChinese, isOn: true, in: [.english]) == [.traditionalChinese, .english])
+        #expect(OCRLanguage.toggled(.english, isOn: false, in: [.traditionalChinese, .english]) == [.traditionalChinese])
+        #expect(OCRLanguage.toggled(.english, isOn: true, in: [.english]) == [.english])
+        #expect(OCRLanguage.toggled(.korean, isOn: false, in: []).isEmpty)
+    }
 }
