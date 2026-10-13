@@ -477,6 +477,7 @@ struct CountdownSettingsTab: View {
     }
 
     private func delete(_ timer: CountdownTimer) {
+        guard DeleteConfirmation.confirm(.timer, name: timer.label) else { return }
         if editingTimerId == timer.id { cancelEdit() }
         manager.removeTimer(id: timer.id)
     }

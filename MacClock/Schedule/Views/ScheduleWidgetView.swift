@@ -269,6 +269,7 @@ struct ScheduleItemView: View {
             }
             Divider()
             Button(role: .destructive) {
+                guard DeleteConfirmation.confirm(.schedule, name: schedule.label) else { return }
                 ScheduleManager.shared.removeSchedule(id: schedule.id)
             } label: {
                 Label("刪除", systemImage: "trash")

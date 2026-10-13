@@ -105,7 +105,10 @@ struct ScheduleSettingsTab: View {
                             schedule: schedule,
                             onToggle: { manager.toggleEnabled(id: schedule.id) },
                             onEdit: { editingSchedule = schedule },
-                            onDelete: { manager.removeSchedule(id: schedule.id) }
+                            onDelete: {
+                                guard DeleteConfirmation.confirm(.schedule, name: schedule.label) else { return }
+                                manager.removeSchedule(id: schedule.id)
+                            }
                         )
                     }
                 }

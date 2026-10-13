@@ -45,8 +45,8 @@ final class OCRToastController {
         panel = nil
 
         let preview = Self.preview(of: message)
-        if position.usesNotch, let screen = NotchGeometry.screenWithNotch,
-           Self.isOnScreen(rect, screen: screen) {
+        // 依使用者選擇的位置顯示；只要有瀏海就用瀏海樣式（即使是在外接螢幕框選）
+        if position.usesNotch, let screen = NotchGeometry.screenWithNotch {
             presentNotch(title: title, message: preview, style: style, position: position, screen: screen)
         } else {
             presentCard(title: title, message: preview, style: style, near: rect)
@@ -105,12 +105,6 @@ final class OCRToastController {
         let singleLine = text.replacingOccurrences(of: "\n", with: " ")
         guard singleLine.count > previewLimit else { return singleLine }
         return String(singleLine.prefix(previewLimit)) + "…"
-    }
-
-    /// 框選區不在瀏海螢幕上時（例如在外接螢幕框選），改用畫面上方卡片，避免提示出現在另一個螢幕
-    private static func isOnScreen(_ rect: CGRect?, screen: NSScreen) -> Bool {
-        guard let rect else { return true }
-        return screen.frame.intersects(rect)
     }
 
     // MARK: - Private

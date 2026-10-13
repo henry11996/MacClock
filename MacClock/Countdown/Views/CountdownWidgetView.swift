@@ -132,7 +132,10 @@ struct CountdownWidgetView: View {
                     onToggle: { manager.toggleStartPause(id: timer.id) },
                     onReset: { manager.reset(id: timer.id) },
                     onAddTime: { seconds in manager.addTime(id: timer.id, seconds: seconds) },
-                    onDelete: { manager.removeTimer(id: timer.id) }
+                    onDelete: {
+                        guard DeleteConfirmation.confirm(.timer, name: timer.label) else { return }
+                        manager.removeTimer(id: timer.id)
+                    }
                 )
             }
 
