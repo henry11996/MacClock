@@ -24,7 +24,8 @@ final class SelectionOverlayController {
 
     var isActive: Bool { !panels.isEmpty }
 
-    func begin(completion: @escaping Completion) {
+    /// - Parameter dimOpacity: 遮罩透明度（呼叫端需確保 > 0，否則點擊會穿透）
+    func begin(dimOpacity: Double, completion: @escaping Completion) {
         guard !isActive else { return }
         self.completion = completion
 
@@ -46,6 +47,7 @@ final class SelectionOverlayController {
             panel.setFrame(screen.frame, display: false)
 
             let view = SelectionOverlayView(frame: NSRect(origin: .zero, size: screen.frame.size))
+            view.dimColor = NSColor.black.withAlphaComponent(dimOpacity)
             view.onFinish = { [weak self, weak panel] localRect in
                 guard let self, let panel else { return }
                 self.finish(with: localRect.map { panel.convertToScreen($0) })
@@ -123,7 +125,7 @@ private final class SelectionOverlayView: NSView {
     private var dragStart: CGPoint?
     private var selection: CGRect = .null
 
-    private static let dimColor = NSColor.black.withAlphaComponent(0.28)
+    var dimColor = NSColor.black.withAlphaComponent(OCRSettings.defaultOverlayDimOpacity)
     private static let borderColor = NSColor.white
     private static let escapeKeyCode: UInt16 = 0x35
 
@@ -140,7 +142,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        Self.dimColor.setFill()
+        dimColor.setFill()
         bounds.fill()
 
         guard !selection.isNull, selection.width > 0, selection.height > 0 else { return }

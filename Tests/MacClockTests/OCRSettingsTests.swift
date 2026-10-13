@@ -85,4 +85,33 @@ struct OCRSettingsTests {
         #expect(OCRHotKey.specialKeyName(for: 0x60) == "F5")
         #expect(OCRHotKey.specialKeyName(for: 0x13) == nil)
     }
+
+    @Test("遮罩深淺預設 28%，舊資料缺欄位時使用預設")
+    func dimOpacityDefault() throws {
+        #expect(OCRSettings.default.overlayDimOpacity == 0.28)
+        let settings = try JSONDecoder().decode(OCRSettings.self, from: Data("{}".utf8))
+        #expect(settings.overlayDimOpacity == OCRSettings.defaultOverlayDimOpacity)
+    }
+
+    @Test("遮罩深淺限制在 0~上限", arguments: [
+        (-0.5, 0.0), (0.3, 0.3), (2.0, OCRSettings.maxOverlayDimOpacity), (Double.nan, OCRSettings.defaultOverlayDimOpacity),
+    ])
+    func dimOpacityClamping(input: Double, expected: Double) {
+        #expect(OCRSettings.clampedDimOpacity(input) == expected)
+        #expect(OCRSettings.default.with(\.overlayDimOpacity, input).drawnDimOpacity
+            == max(expected, OCRSettings.minimumDrawnDimOpacity))
+    }
+
+    @Test("解碼時夾住超出範圍的值")
+    func dimOpacityDecodeClamps() throws {
+        let settings = try JSONDecoder().decode(OCRSettings.self, from: Data(#"{"overlayDimOpacity": 5}"#.utf8))
+        #expect(settings.overlayDimOpacity == OCRSettings.maxOverlayDimOpacity)
+    }
+
+    @Test("設為 0 時實際仍繪製 1% 以避免點擊穿透")
+    func zeroOpacityStillCapturesClicks() {
+        let settings = OCRSettings.default.with(\.overlayDimOpacity, 0)
+        #expect(settings.overlayDimOpacity == 0)
+        #expect(settings.drawnDimOpacity == OCRSettings.minimumDrawnDimOpacity)
+    }
 }

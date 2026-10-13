@@ -66,7 +66,7 @@ final class OCRCoordinator {
         }
 
         isCapturing = true
-        overlay.begin { [weak self] rect in
+        overlay.begin(dimOpacity: settings.drawnDimOpacity) { [weak self] rect in
             guard let self else { return }
             guard let rect else {
                 self.isCapturing = false

@@ -1,46 +1,69 @@
 # MacClock
 
-A minimal, elegant floating clock and timer app for macOS.
+A minimal, elegant floating clock, timer, and screen-text capture tool for macOS.
 
 ![macOS](https://img.shields.io/badge/macOS-26.0%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Release](https://img.shields.io/github/v/release/henry11996/MacClock)](https://github.com/henry11996/MacClock/releases/latest)
 
+**English** | [繁體中文](README.zh-TW.md)
+
 ## Download
 
-### [⬇️ 下載最新版本](https://github.com/henry11996/MacClock/releases/latest)
+### [⬇️ Download the latest release](https://github.com/henry11996/MacClock/releases/latest)
 
-1. 下載 `MacClock.dmg`
-2. 打開 DMG 檔案
-3. 將 MacClock 拖曳至 Applications 資料夾
-4. 從 Applications 或 Launchpad 開啟 MacClock
+1. Download `MacClock.dmg`
+2. Open the DMG
+3. Drag MacClock into the Applications folder
+4. Launch MacClock from Applications or Launchpad
 
-> 首次開啟時，若出現「無法打開」提示，請至「系統設定 → 隱私權與安全性」點擊「強制打開」。
+> MacClock is signed and notarized by Apple. If macOS still blocks it on first launch, go to **System Settings → Privacy & Security** and click **Open Anyway**.
 
 ## Features
 
-- **Floating Clock** - 浮動時鐘小工具，支援多種顯示樣式
-- **Countdown Timers** - 倒數計時器，支援多個同時運行
-- **Pomodoro Timer** - 番茄鐘計時器，支援工作/休息循環
-- **Schedule** - 排程功能，在指定時間自動執行動作
-- **Liquid Glass Effect** - 精美的玻璃視覺效果
-- **Shell Commands** - 計時結束時執行指令
-- **AI Integration** - URL Scheme 支援 AI 代理自動化
-- **Siri & Shortcuts** - 完整 App Intents 支援
+- **Floating Clock** – An always-on-top clock widget with multiple display styles
+- **Screen Text Capture (OCR)** – Select any region of the screen and copy its text instantly, like TextSniper or Capture2Text
+- **Countdown Timers** – Run multiple countdowns at the same time
+- **Pomodoro Timer** – Work/break cycles with an optional full-screen break reminder
+- **Schedule** – Automatically run actions at a set time, daily, on weekdays, or at intervals
+- **Notch Mode** – Show the clock and timers on either side of the MacBook notch
+- **Liquid Glass Effect** – A polished glass look that matches macOS Tahoe
+- **Shell Commands** – Run a command when a timer finishes
+- **AI Integration** – A URL scheme that AI agents can use for automation
+- **Siri & Shortcuts** – Full App Intents support
+
+## Screen Text Capture (OCR)
+
+Press **⇧⌘2**, drag over any text on screen, and the recognized text is copied to the clipboard.
+
+- Uses Apple's built-in **Vision** framework. Everything runs **on-device**, and screenshots are never uploaded or saved
+- Supports Traditional Chinese, Simplified Chinese, English, Japanese, and Korean, or automatic language detection
+- Keeps reading order, joins CJK text without stray spaces, and merges words that were hyphenated across lines
+- Works across multiple displays and Retina screens, and leaves MacClock's own windows out of the capture
+- Customizable: hotkey, languages, accurate or fast mode, line breaks, overlay dimming, toast, and sound
+- Can also be triggered with `macclock://ocr` or from Shortcuts/Siri
+
+> The first time you use it, allow MacClock under **System Settings → Privacy & Security → Screen & System Audio Recording**, then relaunch the app.
 
 ## Installation
 
-### 方式一：下載安裝 (推薦)
+### Option 1: Download (recommended)
 
-從 [Releases](https://github.com/henry11996/MacClock/releases/latest) 下載最新版本 DMG。
+Get the latest DMG from [Releases](https://github.com/henry11996/MacClock/releases/latest).
 
-### 方式二：從原始碼建置
+### Option 2: Build from source
 
 ```bash
 git clone https://github.com/henry11996/MacClock.git
 cd MacClock
 open MacClock.xcodeproj
-# 在 Xcode 中按 Cmd+R 執行
+# Press Cmd+R in Xcode to run
+```
+
+Run the tests:
+
+```bash
+swift test
 ```
 
 ## Quick Start
@@ -57,11 +80,14 @@ open "macclock://pomodoro?action=start"
 # Timer with completion command
 open "macclock://timer?sec=60&command=say%20Done"
 
-# Schedule daily pomodoro at 9:00 AM
-open "macclock://schedule?action=add&time=09:00&do=pomodoro&repeat=daily&name=開始工作"
+# Capture text from a screen region
+open "macclock://ocr"
 
-# Schedule weekday reminder at 6:00 PM
-open "macclock://schedule?action=add&time=18:00&do=notify&title=下班提醒&msg=該下班了&repeat=weekday"
+# Schedule a daily pomodoro at 9:00 AM
+open "macclock://schedule?action=add&time=09:00&do=pomodoro&repeat=daily&name=Focus"
+
+# Schedule a weekday reminder at 6:00 PM
+open "macclock://schedule?action=add&time=18:00&do=notify&title=Reminder&msg=Time%20to%20go%20home&repeat=weekday"
 ```
 
 ### AI Agent Skill
@@ -72,11 +98,11 @@ Install the [MacClock Agent Skill](https://github.com/henry11996/macclock) for C
 npx skills add henry11996/macclock
 ```
 
-Then ask your AI: "Set a 5 minute timer" or "開始番茄鐘"
+Then ask your AI: "Set a 5 minute timer" or "Start a pomodoro".
 
 ## Documentation
 
-- [AI Integration Guide](docs/AI-Integration.md) - Full API documentation
+- [AI Integration Guide](docs/AI-Integration.md) – Full API documentation
 
 ## Requirements
 

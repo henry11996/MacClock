@@ -37,6 +37,23 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
     var keepLineBreaks: Bool
     var showResultToast: Bool
     var playSound: Bool
+    /// 框選時遮罩的深淺（0 = 不變暗，上限見 maxOverlayDimOpacity）
+    var overlayDimOpacity: Double
+
+    static let defaultOverlayDimOpacity: Double = 0.28
+    static let maxOverlayDimOpacity: Double = 0.6
+    /// 完全透明的視窗會讓滑鼠點擊穿透，因此實際繪製時至少保留肉眼不可見的 1%
+    static let minimumDrawnDimOpacity: Double = 0.01
+
+    static func clampedDimOpacity(_ value: Double) -> Double {
+        guard value.isFinite else { return defaultOverlayDimOpacity }
+        return min(max(value, 0), maxOverlayDimOpacity)
+    }
+
+    /// 遮罩實際繪製的透明度
+    var drawnDimOpacity: Double {
+        max(Self.clampedDimOpacity(overlayDimOpacity), Self.minimumDrawnDimOpacity)
+    }
 
     static var `default`: OCRSettings {
         OCRSettings(
@@ -47,7 +64,8 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
             usesLanguageCorrection: true,
             keepLineBreaks: true,
             showResultToast: true,
-            playSound: true
+            playSound: true,
+            overlayDimOpacity: defaultOverlayDimOpacity
         )
     }
 
@@ -64,6 +82,9 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         keepLineBreaks = try container.decodeIfPresent(Bool.self, forKey: .keepLineBreaks) ?? fallback.keepLineBreaks
         showResultToast = try container.decodeIfPresent(Bool.self, forKey: .showResultToast) ?? fallback.showResultToast
         playSound = try container.decodeIfPresent(Bool.self, forKey: .playSound) ?? fallback.playSound
+        overlayDimOpacity = Self.clampedDimOpacity(
+            try container.decodeIfPresent(Double.self, forKey: .overlayDimOpacity) ?? fallback.overlayDimOpacity
+        )
     }
 
     init(
@@ -74,7 +95,8 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         usesLanguageCorrection: Bool,
         keepLineBreaks: Bool,
         showResultToast: Bool,
-        playSound: Bool
+        playSound: Bool,
+        overlayDimOpacity: Double
     ) {
         self.hotKeyEnabled = hotKeyEnabled
         self.hotKey = hotKey
@@ -84,6 +106,7 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         self.keepLineBreaks = keepLineBreaks
         self.showResultToast = showResultToast
         self.playSound = playSound
+        self.overlayDimOpacity = Self.clampedDimOpacity(overlayDimOpacity)
     }
 
     /// 回傳修改過的新副本

@@ -20,6 +20,7 @@ struct OCRSettingsTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 captureCard
+                appearanceCard
                 languageCard
                 outputCard
                 privacyNote
@@ -108,6 +109,69 @@ struct OCRSettingsTab: View {
                 }
             }
         }
+    }
+
+    private var appearanceCard: some View {
+        SettingsCard(title: "框選外觀", icon: "circle.lefthalf.filled") {
+            HStack {
+                Label("遮罩深淺", systemImage: "square.filled.on.square")
+                    .font(.system(size: 13, design: .rounded))
+                Spacer()
+                Text(dimOpacityLabel)
+                    .font(.system(size: 12, design: .rounded).monospacedDigit())
+                    .foregroundColor(.secondary)
+            }
+            Slider(
+                value: binding(\.overlayDimOpacity),
+                in: 0...OCRSettings.maxOverlayDimOpacity,
+                step: 0.02
+            ) {
+                EmptyView()
+            } minimumValueLabel: {
+                Image(systemName: "sun.max").font(.system(size: 10))
+            } maximumValueLabel: {
+                Image(systemName: "moon.fill").font(.system(size: 10))
+            }
+            .accessibilityLabel("遮罩深淺")
+            .accessibilityValue(dimOpacityLabel)
+            dimPreview
+            Text("框選時畫面變暗的程度，只影響顯示，不影響辨識結果")
+                .font(.system(size: 11, design: .rounded))
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var dimOpacityLabel: String {
+        let percent = Int((OCRSettings.clampedDimOpacity(settings.overlayDimOpacity) * 100).rounded())
+        return percent == 0 ? "不變暗" : "\(percent)%"
+    }
+
+    /// 預覽：外圍套用遮罩、中間為選取區
+    private var dimPreview: some View {
+        ZStack {
+            LinearGradient(
+                colors: [ThemeColors.primary.opacity(0.6), Color.orange.opacity(0.6)],
+                startPoint: .leading, endPoint: .trailing
+            )
+            Color.black.opacity(settings.drawnDimOpacity)
+                .mask {
+                    Rectangle()
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 2)
+                                .frame(width: 120, height: 28)
+                                .blendMode(.destinationOut)
+                        }
+                        .compositingGroup()
+                }
+            RoundedRectangle(cornerRadius: 2)
+                .stroke(Color.white, lineWidth: 1)
+                .frame(width: 120, height: 28)
+            Text("範例文字")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+        }
+        .frame(height: 56)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var languageCard: some View {
