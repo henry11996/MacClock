@@ -65,6 +65,13 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
     /// 框選時遮罩的深淺（0 = 不變暗，上限見 maxOverlayDimOpacity）
     var overlayDimOpacity: Double
     var toastPosition: OCRToastPosition
+    /// 擷取並翻譯的快捷鍵
+    var translateHotKeyEnabled: Bool
+    var translateHotKey: OCRHotKey
+    /// 翻譯的目標語言（BCP 47，例如 "zh-Hant"）
+    var translationTarget: String
+    /// 翻譯完成後自動把譯文複製到剪貼簿
+    var autoCopyTranslation: Bool
 
     static let defaultOverlayDimOpacity: Double = 0.28
     static let maxOverlayDimOpacity: Double = 0.6
@@ -92,7 +99,11 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
             showResultToast: true,
             playSound: true,
             overlayDimOpacity: defaultOverlayDimOpacity,
-            toastPosition: .notchRight
+            toastPosition: .notchRight,
+            translateHotKeyEnabled: true,
+            translateHotKey: .defaultTranslate,
+            translationTarget: TranslationLanguage.defaultTarget.rawValue,
+            autoCopyTranslation: true
         )
     }
 
@@ -115,6 +126,13 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         // 未知的值（例如未來版本新增的位置）退回預設
         toastPosition = (try? container.decodeIfPresent(OCRToastPosition.self, forKey: .toastPosition))
             .flatMap { $0 } ?? fallback.toastPosition
+        translateHotKeyEnabled = try container.decodeIfPresent(Bool.self, forKey: .translateHotKeyEnabled)
+            ?? fallback.translateHotKeyEnabled
+        translateHotKey = try container.decodeIfPresent(OCRHotKey.self, forKey: .translateHotKey) ?? fallback.translateHotKey
+        translationTarget = try container.decodeIfPresent(String.self, forKey: .translationTarget)
+            .flatMap { TranslationLanguage(rawValue: $0)?.rawValue } ?? fallback.translationTarget
+        autoCopyTranslation = try container.decodeIfPresent(Bool.self, forKey: .autoCopyTranslation)
+            ?? fallback.autoCopyTranslation
     }
 
     init(
@@ -127,7 +145,11 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         showResultToast: Bool,
         playSound: Bool,
         overlayDimOpacity: Double,
-        toastPosition: OCRToastPosition = .notchRight
+        toastPosition: OCRToastPosition = .notchRight,
+        translateHotKeyEnabled: Bool = true,
+        translateHotKey: OCRHotKey = .defaultTranslate,
+        translationTarget: String = TranslationLanguage.defaultTarget.rawValue,
+        autoCopyTranslation: Bool = true
     ) {
         self.hotKeyEnabled = hotKeyEnabled
         self.hotKey = hotKey
@@ -139,6 +161,10 @@ nonisolated struct OCRSettings: Codable, Equatable, Sendable {
         self.playSound = playSound
         self.overlayDimOpacity = Self.clampedDimOpacity(overlayDimOpacity)
         self.toastPosition = toastPosition
+        self.translateHotKeyEnabled = translateHotKeyEnabled
+        self.translateHotKey = translateHotKey
+        self.translationTarget = translationTarget
+        self.autoCopyTranslation = autoCopyTranslation
     }
 
     /// 回傳修改過的新副本

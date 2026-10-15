@@ -18,9 +18,22 @@ final class OCRCoordinator {
 
     private(set) var settings: OCRSettings
     private(set) var isCapturing = false
+    /// 擷取後要做什麼
+    enum CaptureMode {
+        /// 辨識文字並複製
+        case copyText
+        /// 辨識後翻譯，結果顯示在瀏海下方的卡片
+        case translate
+    }
+
     /// 目前快捷鍵是否註冊成功（失敗通常是被其他 App 佔用）
     private(set) var isHotKeyRegistered = false
+    private(set) var isTranslateHotKeyRegistered = false
     private(set) var lastRecognizedText: String?
+
+    /// 進行中的翻譯；新的翻譯開始時取消舊的，避免較晚回來的舊結果蓋掉新結果
+    private var translationTask: Task<Void, Never>?
+    private var translationGeneration = 0
 
     private let overlay = SelectionOverlayController()
     private let toast = OCRToastController()
@@ -31,33 +44,36 @@ final class OCRCoordinator {
 
     /// App 啟動時呼叫
     func start() {
-        registerHotKey()
+        registerHotKeys()
     }
 
     func update(_ newSettings: OCRSettings) {
         guard newSettings != settings else { return }
         let hotKeyChanged = newSettings.hotKey != settings.hotKey
             || newSettings.hotKeyEnabled != settings.hotKeyEnabled
+            || newSettings.translateHotKey != settings.translateHotKey
+            || newSettings.translateHotKeyEnabled != settings.translateHotKeyEnabled
         settings = newSettings
         newSettings.save()
         if hotKeyChanged {
-            registerHotKey()
+            registerHotKeys()
         }
     }
 
     /// 錄製新快捷鍵時暫停全域快捷鍵，避免被攔截
     func suspendHotKey() {
-        GlobalHotKeyService.shared.unregister()
+        GlobalHotKeyService.shared.unregisterAll()
         isHotKeyRegistered = false
+        isTranslateHotKeyRegistered = false
     }
 
     func resumeHotKey() {
-        registerHotKey()
+        registerHotKeys()
     }
 
     // MARK: - Capture Flow
 
-    func startCapture() {
+    func startCapture(mode: CaptureMode = .copyText) {
         guard !isCapturing, !overlay.isActive else { return }
 
         guard ScreenCaptureService.hasPermission else {
@@ -72,11 +88,11 @@ final class OCRCoordinator {
                 self.isCapturing = false
                 return
             }
-            Task { await self.recognize(in: rect) }
+            Task { await self.recognize(in: rect, mode: mode) }
         }
     }
 
-    private func recognize(in rect: CGRect) async {
+    private func recognize(in rect: CGRect, mode: CaptureMode) async {
         defer { isCapturing = false }
         let currentSettings = settings
         do {
@@ -87,12 +103,54 @@ final class OCRCoordinator {
                 options: TextRecognitionOptions(settings: currentSettings)
             )
             let text = OCRTextFormatter.format(fragments, keepLineBreaks: currentSettings.keepLineBreaks)
-            deliver(text, settings: currentSettings, near: rect)
+            switch mode {
+            case .copyText:
+                deliver(text, settings: currentSettings, near: rect)
+            case .translate:
+                guard !text.isEmpty else {
+                    showToast(title: "未辨識到文字", message: "請選取包含清楚文字的區域", style: .warning, near: rect)
+                    return
+                }
+                translate(text)
+            }
         } catch ScreenCaptureError.permissionDenied {
             handleMissingPermission()
         } catch {
             Self.logger.error("OCR failed: \(error.localizedDescription, privacy: .public)")
             showToast(title: "文字辨識失敗", message: error.localizedDescription, style: .warning, near: rect)
+        }
+    }
+
+    // MARK: - Translation
+
+    /// 翻譯並顯示在瀏海下方的卡片；重試時使用同一段文字
+    private func translate(_ text: String) {
+        lastRecognizedText = text
+        let card = TranslationCardController.shared
+        card.showTranslating(original: text) { [weak self] in
+            self?.translate(text)
+        }
+        let target = TranslationLanguage(rawValue: settings.translationTarget) ?? .defaultTarget
+        let autoCopy = settings.autoCopyTranslation
+        translationTask?.cancel()
+        translationGeneration += 1
+        let generation = translationGeneration
+        translationTask = Task { [weak self] in
+            let outcome = await TranslationService.translate(text, preferredTarget: target)
+            // 已有更新的翻譯、或使用者已關閉卡片時，不更新畫面也不動剪貼簿
+            guard let self, !Task.isCancelled, generation == self.translationGeneration, card.isShowing else { return }
+            switch outcome {
+            case let .success(result):
+                if autoCopy {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(result.translated, forType: .string)
+                }
+                card.showResult(result, autoCopied: autoCopy)
+            case let .failure(failure):
+                Self.logger.error("Translation failed: \(failure.message, privacy: .public)")
+                card.showFailure(original: text, failure: failure)
+            }
         }
     }
 
@@ -150,14 +208,26 @@ final class OCRCoordinator {
         }
     }
 
-    private func registerHotKey() {
-        guard settings.hotKeyEnabled else {
-            GlobalHotKeyService.shared.unregister()
+    private func registerHotKeys() {
+        let service = GlobalHotKeyService.shared
+        if settings.hotKeyEnabled {
+            isHotKeyRegistered = service.register(settings.hotKey, for: .captureText) { [weak self] in
+                self?.startCapture(mode: .copyText)
+            }
+        } else {
+            service.unregister(.captureText)
             isHotKeyRegistered = false
-            return
         }
-        isHotKeyRegistered = GlobalHotKeyService.shared.register(settings.hotKey) { [weak self] in
-            self?.startCapture()
+
+        // 與擷取文字的快捷鍵相同時不註冊，避免一個按鍵觸發兩種動作
+        if settings.translateHotKeyEnabled,
+           !(settings.hotKeyEnabled && settings.translateHotKey == settings.hotKey) {
+            isTranslateHotKeyRegistered = service.register(settings.translateHotKey, for: .translate) { [weak self] in
+                self?.startCapture(mode: .translate)
+            }
+        } else {
+            service.unregister(.translate)
+            isTranslateHotKeyRegistered = false
         }
     }
 }

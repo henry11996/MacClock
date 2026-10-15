@@ -2,58 +2,68 @@
 //  GlobalHotKeyService.swift
 //  MacClock
 //
-//  以 Carbon RegisterEventHotKey 註冊全域快捷鍵
+//  以 Carbon RegisterEventHotKey 註冊全域快捷鍵（可同時註冊多組）
 //  （不需要「輔助使用」權限，且可在 App Sandbox 中運作）
 //
 
 import Carbon.HIToolbox
 import OSLog
 
+/// 每組快捷鍵的用途；rawValue 即 Carbon EventHotKeyID.id
+enum HotKeySlot: UInt32, CaseIterable {
+    case captureText = 1
+    case translate = 2
+}
+
 @MainActor
 final class GlobalHotKeyService {
     static let shared = GlobalHotKeyService()
 
     private static let signature: OSType = 0x4D43_4F43  // 'MCOC'
-    private static let hotKeyID: UInt32 = 1
     private static let logger = Logger(subsystem: "com.henry.MacClock", category: "HotKey")
 
-    private var hotKeyRef: EventHotKeyRef?
+    private struct Registration {
+        let ref: EventHotKeyRef
+        let action: () -> Void
+    }
+
+    private var registrations: [HotKeySlot: Registration] = [:]
     private var handlerRef: EventHandlerRef?
-    private var action: (() -> Void)?
 
     private init() {}
 
-    /// 註冊（會先取消舊的註冊）
-    /// - Returns: 是否成功（失敗通常代表快捷鍵已被其他 App 佔用）
+    /// 註冊（會先取消同一組的舊註冊）
+    /// - Returns: 是否成功（失敗通常代表快捷鍵已被其他 App 或另一組設定佔用）
     @discardableResult
-    func register(_ hotKey: OCRHotKey, action: @escaping () -> Void) -> Bool {
-        unregister()
+    func register(_ hotKey: OCRHotKey, for slot: HotKeySlot, action: @escaping () -> Void) -> Bool {
+        unregister(slot)
         guard hotKey.isValid, installHandlerIfNeeded() else { return false }
 
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(
             hotKey.keyCode,
             hotKey.carbonModifiers,
-            EventHotKeyID(signature: Self.signature, id: Self.hotKeyID),
+            EventHotKeyID(signature: Self.signature, id: slot.rawValue),
             GetApplicationEventTarget(),
             0,
             &ref
         )
         guard status == noErr, let ref else {
-            Self.logger.error("RegisterEventHotKey failed: \(status)")
+            Self.logger.error("RegisterEventHotKey failed for slot \(slot.rawValue): \(status)")
             return false
         }
-        hotKeyRef = ref
-        self.action = action
+        registrations[slot] = Registration(ref: ref, action: action)
         return true
     }
 
-    func unregister() {
-        if let hotKeyRef {
-            UnregisterEventHotKey(hotKeyRef)
+    func unregister(_ slot: HotKeySlot) {
+        if let registration = registrations.removeValue(forKey: slot) {
+            UnregisterEventHotKey(registration.ref)
         }
-        hotKeyRef = nil
-        action = nil
+    }
+
+    func unregisterAll() {
+        HotKeySlot.allCases.forEach(unregister)
     }
 
     fileprivate func handle(_ event: EventRef?) -> OSStatus {
@@ -68,10 +78,13 @@ final class GlobalHotKeyService {
             nil,
             &pressedID
         )
-        guard status == noErr, pressedID.signature == Self.signature, pressedID.id == Self.hotKeyID else {
+        guard status == noErr, pressedID.signature == Self.signature,
+              let slot = HotKeySlot(rawValue: pressedID.id),
+              let registration = registrations[slot]
+        else {
             return OSStatus(eventNotHandledErr)
         }
-        action?()
+        registration.action()
         return noErr
     }
 

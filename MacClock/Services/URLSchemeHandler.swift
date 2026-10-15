@@ -35,6 +35,10 @@ struct URLSchemeHandler {
         case "status":
             return handleStatus()
         case "ocr":
+            if params["action"] == "translate" {
+                OCRCoordinator.shared.startCapture(mode: .translate)
+                return "已開始擷取並翻譯"
+            }
             OCRCoordinator.shared.startCapture()
             return "已開始擷取文字"
         default:

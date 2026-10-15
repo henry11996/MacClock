@@ -41,22 +41,21 @@ nonisolated enum TextRecognizer {
 
     static func recognizeSync(_ image: CGImage, options: TextRecognitionOptions) throws -> [RecognizedFragment] {
         let prepared = padIfNeeded(image)
-        return try RequestPool.shared.withLock { pool in
+        return try requestCache.withValue(for: options) { request, rebuild in
             do {
-                return try perform(prepared, request: pool.request(for: options))
+                return try perform(prepared, request: request)
             } catch {
                 // 快取的辨識器失效時，重建一次再試
-                pool.discard(options)
                 do {
-                    return try perform(prepared, request: pool.request(for: options))
+                    return try perform(prepared, request: rebuild())
                 } catch where options.accurate {
-                    // 仍失敗時改用快速模式，至少不讓使用者看到錯誤
+                    // 仍失敗時改用快速模式，至少不讓使用者看到錯誤；備援辨識器用完即丟，不佔用快取
                     let fast = TextRecognitionOptions(
                         languages: options.languages,
                         accurate: false,
                         usesLanguageCorrection: options.usesLanguageCorrection
                     )
-                    return try perform(prepared, request: pool.request(for: fast))
+                    return try perform(prepared, request: makeRequest(fast))
                 }
             }
         }
@@ -72,7 +71,12 @@ nonisolated enum TextRecognizer {
         }
     }
 
-    fileprivate static func makeRequest(_ options: TextRecognitionOptions) -> VNRecognizeTextRequest {
+    /// 只保留「目前設定」的辨識器；設定改變時舊的會被釋放
+    private static let requestCache = SingleValueCache<TextRecognitionOptions, VNRecognizeTextRequest>(
+        make: makeRequest
+    )
+
+    static func makeRequest(_ options: TextRecognitionOptions) -> VNRecognizeTextRequest {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = options.accurate ? .accurate : .fast
         request.usesLanguageCorrection = options.usesLanguageCorrection
@@ -166,31 +170,36 @@ nonisolated enum TextRecognizer {
     }
 }
 
-/// 重複使用 Vision 辨識器
-/// 沙盒中每次重新建立中文精準辨識器時，第二次起載入模型會失敗（CRImageReaderError / e5rt error），
-/// 重複使用同一個 request 則可穩定辨識。VNRecognizeTextRequest 不是執行緒安全的，因此以鎖序列化。
-private final class RequestPool: @unchecked Sendable {
-    static let shared = RequestPool()
-
+/// 只保留一份的快取：key 相同時重複使用，key 改變時釋放舊值並建立新的
+///
+/// 用於 Vision 辨識器：沙盒中每次重新建立中文精準辨識器時，第二次起載入模型會失敗
+/// （CRImageReaderError / e5rt error），重複使用同一個 request 則可穩定辨識。
+/// VNRecognizeTextRequest 不是執行緒安全的，因此所有存取都在鎖內進行。
+nonisolated final class SingleValueCache<Key: Equatable, Value: AnyObject>: @unchecked Sendable {
     private let lock = NSLock()
-    private var requests: [TextRecognitionOptions: VNRecognizeTextRequest] = [:]
+    private let make: (Key) -> Value
+    private var current: (key: Key, value: Value)?
 
-    func withLock<T>(_ body: (RequestPool) throws -> T) rethrows -> T {
+    init(make: @escaping (Key) -> Value) {
+        self.make = make
+    }
+
+    /// 在鎖內取得（必要時建立）對應 key 的值並執行 body
+    /// - body 的第二個參數 `rebuild` 會丟掉目前的值並重新建立；它是非逃逸閉包，只能在鎖內使用
+    /// - 值本身不是執行緒安全的，呼叫端不應讓它離開 body
+    func withValue<T>(for key: Key, _ body: (Value, _ rebuild: () -> Value) throws -> T) rethrows -> T {
         lock.lock()
         defer { lock.unlock() }
-        return try body(self)
+        return try body(valueLocked(for: key)) {
+            current = nil
+            return valueLocked(for: key)
+        }
     }
 
-    /// 呼叫端需持有鎖
-    func request(for options: TextRecognitionOptions) -> VNRecognizeTextRequest {
-        if let existing = requests[options] { return existing }
-        let request = TextRecognizer.makeRequest(options)
-        requests[options] = request
-        return request
-    }
-
-    /// 呼叫端需持有鎖
-    func discard(_ options: TextRecognitionOptions) {
-        requests[options] = nil
+    private func valueLocked(for key: Key) -> Value {
+        if let current, current.key == key { return current.value }
+        let value = make(key)
+        current = (key, value)
+        return value
     }
 }

@@ -21,6 +21,7 @@ struct OCRSettingsTab: View {
         SettingsTabScaffold(onClose: onClose) {
             headerCard
             triggerCard
+            translationCard
             recognitionCard
             resultCard
             appearanceCard
@@ -115,8 +116,79 @@ struct OCRSettingsTab: View {
             }
 
             Divider()
-            SettingsFootnote(text: "也可用 macclock://ocr 或「捷徑」觸發。框選時按 Esc 或右鍵取消。")
+            SettingsFootnote(text: "也可用 macclock://ocr（翻譯：macclock://ocr?action=translate）或「捷徑」觸發。框選時按 Esc 或右鍵取消。")
         }
+    }
+
+    private var translationCard: some View {
+        SettingsCard(title: "翻譯", icon: "translate") {
+            SettingRow(
+                title: "擷取並翻譯",
+                subtitle: "框選後翻譯，結果顯示在瀏海下方",
+                icon: "character.bubble"
+            ) {
+                Toggle("擷取並翻譯快捷鍵", isOn: binding(\.translateHotKeyEnabled))
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+            }
+
+            if settings.translateHotKeyEnabled {
+                SettingRow(title: "翻譯快捷鍵", subtitle: "點擊後按下新的組合鍵", icon: "keyboard.badge.ellipsis") {
+                    HotKeyRecorder(hotKey: settings.translateHotKey) { newHotKey in
+                        coordinator.update(settings.with(\.translateHotKey, newHotKey))
+                    }
+                }
+                if let warning = translateHotKeyWarning {
+                    Label(warning, systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundColor(.orange)
+                }
+            }
+
+            SettingRow(title: "翻譯成", subtitle: "原文已是此語言時會改翻成英文", icon: "globe") {
+                Picker("翻譯成", selection: translationTargetBinding) {
+                    ForEach(TranslationLanguage.allCases, id: \.self) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+
+            SettingToggleRow(
+                title: "自動複製譯文",
+                subtitle: "翻譯完成後把譯文放到剪貼簿",
+                icon: "doc.on.clipboard",
+                isOn: binding(\.autoCopyTranslation)
+            )
+
+            Divider()
+
+            HStack {
+                SettingsFootnote(text: "使用 macOS 內建翻譯，在本機處理。第一次翻譯某種語言時，需要先下載該語言包。")
+                Spacer()
+                Button("管理翻譯語言…") {
+                    if let url = TranslationService.languageSettingsURL {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .controlSize(.small)
+            }
+        }
+    }
+
+    private var translateHotKeyWarning: String? {
+        if settings.hotKeyEnabled, settings.translateHotKey == settings.hotKey {
+            return "與「擷取文字」的快捷鍵相同，請換一組"
+        }
+        return coordinator.isTranslateHotKeyRegistered ? nil : "快捷鍵註冊失敗，可能已被其他 App 使用，請換一組"
+    }
+
+    private var translationTargetBinding: Binding<TranslationLanguage> {
+        Binding(
+            get: { TranslationLanguage(rawValue: coordinator.settings.translationTarget) ?? .defaultTarget },
+            set: { coordinator.update(coordinator.settings.with(\.translationTarget, $0.rawValue)) }
+        )
     }
 
     private var recognitionCard: some View {

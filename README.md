@@ -43,6 +43,7 @@ Press **⇧⌘2**, drag over any text on screen, and the recognized text is copi
 - Works across multiple displays and Retina screens, and leaves MacClock's own windows out of the capture
 - Customizable: hotkey, languages, accurate or fast mode, line breaks, overlay dimming, toast, and sound
 - Can also be triggered with `macclock://ocr` or from Shortcuts/Siri
+- **Translate (⇧⌘1)**: select text on screen and the translation appears in a card under the notch, using macOS's built-in on-device translation. The source language is detected automatically. The first time you translate a language, MacClock offers to download its language pack.
 
 > The first time you use it, allow MacClock under **System Settings → Privacy & Security → Screen & System Audio Recording**, then relaunch the app.
 

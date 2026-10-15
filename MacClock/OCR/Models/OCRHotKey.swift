@@ -23,6 +23,8 @@ nonisolated struct OCRHotKey: Codable, Equatable, Sendable {
 
     /// 預設 ⇧⌘2（與 TextSniper 相同，且不與系統截圖 ⇧⌘3/4/5 衝突）
     static let `default` = OCRHotKey(keyCode: 0x13, carbonModifiers: shiftFlag | commandFlag, keyDisplay: "2")
+    /// 擷取並翻譯：⇧⌘1
+    static let defaultTranslate = OCRHotKey(keyCode: 0x12, carbonModifiers: shiftFlag | commandFlag, keyDisplay: "1")
 
     /// 需包含 ⌘ / ⌃ / ⌥ 其中之一，避免單獨 Shift 或無修飾鍵搶走一般輸入
     var isValid: Bool {

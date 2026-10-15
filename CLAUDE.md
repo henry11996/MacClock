@@ -61,7 +61,14 @@ All timer systems use singletons with `@Observable` pattern:
 - `GlobalHotKeyService` - Carbon `RegisterEventHotKey` (default ⇧⌘2, no Accessibility permission needed)
 - `ScreenCaptureService` / `CaptureGeometry` - Capture with own windows excluded; AppKit↔CG coordinate conversion
 - `TextRecognizer` / `OCRTextFormatter` - `VNRecognizeTextRequest` (on-device) and reading-order/CJK-aware joining
+- `Translation/` - ⇧⌘1 capture + translate: `TranslationService` (NLLanguageRecognizer + `TranslationSession(installedSource:)`), `TranslationCardController` (card under the notch), `TranslationDownloadController` (`.translationTask` language-pack download)
+- `GlobalHotKeyService` supports multiple slots (`HotKeySlot.captureText` / `.translate`)
+- Vision requests are reused via `SingleValueCache` (re-creating the accurate CJK recognizer fails in the sandbox)
 - Requires Screen Recording permission; settings in `OCRSettings` (UserDefaults key `ocrSettings`)
+
+**Clothesline** (`MacClock/Clothesline/`)
+- Screenshot line under the notch; watches a user-chosen folder via security-scoped bookmark
+- Only app-owned OCR captures (`CaptureFilePolicy`) may be deleted
 
 ### URL Scheme API
 
@@ -87,6 +94,7 @@ macclock://schedule?action=remove&label=開始工作
 
 # Screen OCR (select region, copy text to clipboard)
 macclock://ocr
+macclock://ocr?action=translate                 # Capture and translate
 
 # Status query
 macclock://status
